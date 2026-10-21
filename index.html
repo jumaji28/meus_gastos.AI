@@ -2697,7 +2697,7 @@ $('#edOk').onclick = () => {
 // no arquivo aberto no computador, responde com o assistente local logo abaixo.
 let sample = null, chatTurns = [], chatCtl = null, podeChat = false;
 const noClaude = !!window.claude;
-const SUGEST = ['Quanto ainda posso gastar este mês?', 'Onde mais gastei no mês passado?', 'Quanto gastei com delivery este ano?', 'Estou dentro das metas?', 'Quais gastos posso cortar?', 'O que ainda vai cair este mês?'];
+const SUGEST = ['Quanto ainda posso gastar este mês?', 'Meu salário menos a fatura do cartão', 'Quanto está a fatura?', 'Onde mais gastei no mês passado?', 'Quanto gastei com delivery este ano?', 'Estou dentro das metas?', 'Quais gastos posso cortar?', 'O que ainda vai cair este mês?'];
 function contexto() {
   const visto = L; L = L_ALL;
   const c = calc(periodo(MES_ATUAL));
@@ -2731,12 +2731,13 @@ const TOOLS = [
 // últimos 3 meses, 2025 x 2026), categoria, subcategoria ou uma palavra da descrição ("ifood", "uber").
 const MESES_N = { janeiro: 1, fevereiro: 2, marco: 3, abril: 4, maio: 5, junho: 6, julho: 7, agosto: 8, setembro: 9, outubro: 10, novembro: 11, dezembro: 12 };
 const MES_ABR = { jan: 1, fev: 2, abr: 4, mai: 5, jun: 6, jul: 7, ago: 8, set: 9, out: 10, nov: 11, dez: 12 };
-const STOP = new Set(('quanto quanta quantos quantas gastei gasto gastos gastar gastando gastou paguei pago pagar com de do da dos das no na nos nas em e o a os as um uma meu minha meus minhas mes meses ano anos este esse essa esta neste nesse nessa nesta passado passada ultimo ultimos ultima ultimas total foi qual quais eu que por para pra mais menos onde vs entre contra comparar compare comparado comparando media mensal valor dinheiro reais ate agora hoje posso ainda sobra sobrar tenho tive ja me ao aos se sao foram fiz cada todo toda todos todas quando como mostra mostre lista liste diga fala quero saber sabe voce vc tudo coisa coisas despesa despesas receita receitas recebi recebido entrou ganhei gostaria preciso consigo maior maiores principais top ranking mais').split(' '));
+const STOP = new Set(('quanto quanta quantos quantas gastei gasto gastos gastar gastando gastou paguei pago pagar com de do da dos das no na nos nas em e o a os as um uma meu minha meus minhas mes meses ano anos este esse essa esta neste nesse nessa nesta passado passada ultimo ultimos ultima ultimas total foi qual quais eu que por para pra mais menos onde vs entre contra comparar compare comparado comparando media mensal valor dinheiro reais ate agora hoje posso ainda sobra sobrar tenho tive ja me ao aos se sao foram fiz cada todo toda todos todas quando como mostra mostre lista liste diga fala quero saber sabe voce vc tudo coisa coisas despesa despesas receita receitas recebi recebido entrou ganhei gostaria preciso consigo maior maiores principais top ranking mais ' +
+  'caro cara caros caras barato barata compra compras comprei pedi pedido pedidos vez vezes menor menores custou custo dia dias semana semanas media cento porcentagem parte frequencia sempre normalmente costumo geral geralmente fui ir fiz quando ultima ultimo foi sera vai vou ficou fica estou esta').split(' '));
 const SIN = { comida: ['Alimentação'], alimentacao: ['Alimentação'], delivery: ['Delivery'], ifood: ['Delivery'], lanche: ['Delivery', 'Bares e restaurantes'], restaurante: ['Bares e restaurantes'], restaurantes: ['Bares e restaurantes'], bar: ['Bares e restaurantes'], bares: ['Bares e restaurantes'],
   mercado: ['Mercado'], supermercado: ['Mercado'], feira: ['Mercado'], padaria: ['Padaria'], uber: ['Aplicativo'], aplicativo: ['Aplicativo'], taxi: ['Aplicativo'], gasolina: ['Combustível'], combustivel: ['Combustível'], posto: ['Combustível'], carro: ['Transporte'],
   farmacia: ['Farmácia'], remedio: ['Farmácia'], remedios: ['Farmácia'], academia: ['Academia'], medico: ['Consultas e exames'], aluguel: ['Aluguel e condomínio'], condominio: ['Aluguel e condomínio'], luz: ['Energia, água e gás'], energia: ['Energia, água e gás'], agua: ['Energia, água e gás'],
   internet: ['Internet e telefone'], celular: ['Internet e telefone'], telefone: ['Internet e telefone'], streaming: ['Streaming'], assinatura: ['Assinaturas'], viagem: ['Viagem'], viagens: ['Viagem'], hotel: ['Viagem'], roupa: ['Vestuário'], roupas: ['Vestuário'],
-  pix: ['PIX a pessoas', 'Reembolsos de rateio', 'PIX recebidos'], tarifa: ['Tarifas e juros'], tarifas: ['Tarifas e juros'], juros: ['Tarifas e juros'], iof: ['Tarifas e juros'], curso: ['Cursos e faculdade'], cursos: ['Cursos e faculdade'], faculdade: ['Cursos e faculdade'],
+  pix: ['PIX a pessoas'], tarifa: ['Tarifas e juros'], tarifas: ['Tarifas e juros'], juros: ['Tarifas e juros'], iof: ['Tarifas e juros'], curso: ['Cursos e faculdade'], cursos: ['Cursos e faculdade'], faculdade: ['Cursos e faculdade'],
   pet: ['Pet'], investimento: ['Investimentos'], investimentos: ['Investimentos'], salario: ['Salário'], rateio: ['Reembolsos de rateio'], reembolso: ['Reembolsos de rateio'], reembolsos: ['Reembolsos de rateio'], cartao: ['__cartao'] };
 const mesP = m => ({ meses: [m], label: m === MES_ATUAL ? 'este mês' : mNome(m) });
 // "neste mês", "em setembro de 2026", "nos últimos 3 meses", "em 2026"
@@ -2870,27 +2871,273 @@ function rComparar(anos, f) {
   return [`${f.ativo ? esc(cap(f.label)) : 'Gasto total'}, média por mês:`, `• ${a0}: <b>${brl0(v0)}</b> (${n0} meses)`, `• ${a1}: <b>${brl0(v1)}</b> (${n1} meses)`,
     `${d >= 0 ? 'Subiu' : 'Caiu'} ${brl0(Math.abs(d))} por mês${v0 > 0 ? ` (${d >= 0 ? '+' : '−'}${Math.round(Math.abs(d) / v0 * 100)}%)` : ''}.`].join('\n');
 }
-const ajuda = () => ['Não entendi essa pergunta. Eu respondo coisas como:', '• Quanto ainda posso gastar este mês?', '• Quanto gastei com mercado em setembro?', '• Onde mais gastei no mês passado?', '• Quanto gastei com ifood nos últimos 3 meses?', '• Delivery 2025 x 2026', '• Quanto recebi este mês?', '• Estou dentro das metas?', '• Quais gastos posso cortar?', '• O que ainda vai cair este mês?'].join('\n');
+const ajuda = () => ['Não entendi essa pergunta. Eu respondo coisas como:', '• Quanto ainda posso gastar este mês?', '• Meu salário menos a fatura do Nubank', '• Quanto está a fatura do cartão?', '• Quanto % do salário vai para a fatura?',
+  '• Quanto gastei com mercado em setembro? (e depois: “e em agosto?”)', '• Gastei mais que no mês passado?', '• Quantas vezes pedi ifood este mês?', '• Quando foi a última vez que fui ao posto?', '• Qual foi meu maior gasto do mês?',
+  '• Quais são minhas assinaturas?', '• Quanto gasto em média com delivery?', '• Quanto gasto por dia?', '• Onde mais gastei no mês passado?', '• Estou dentro das metas?', '• Quais gastos posso cortar?', '• Contas: 5.000 - 1.200 - 300'].join('\n');
+/* ---- contas: "salário menos a fatura do Nubank", "renda menos aluguel e mercado", "5000 menos a fatura" ----
+   Cada parte vira um valor do mês (salário, fatura de um cartão, entradas, gastos, meta, VA, uma categoria ou um número)
+   e o assistente mostra a conta inteira. Fatura aberta: mostra o valor até hoje e a projeção até fechar. */
+const RX_MENOS = /\bmenos\b|\btirando\b|\bdescontando\b|\bsubtraindo\b|\btira\b|\bdescontar\b|\bdepois de pagar\b| − | - /;
+function faturaDe(cards, m) {
+  const tot = { ate: 0, proj: 0, fim: '', ini: '', fechada: true, nomes: [] };
+  cards.forEach(c => {
+    const j = janela(c, m), lc = L_ALL.filter(l => l.kind === 'cartao' && l.cartao === c.id && l.mes === m && isDesp(l));
+    const ate = sum(lc.filter(l => l.data <= HOJE)), futuro = sum(lc.filter(l => l.data > HOJE));
+    const dias = diffDays(j.ini, j.fim) + 1, pass = Math.max(1, Math.min(dias, diffDays(j.ini, HOJE) + 1)), aberta = HOJE <= j.fim;
+    const varAte = sum(lc.filter(l => l.data <= HOJE && l.fv !== 'Fixo'));
+    tot.ate += ate; tot.proj += ate + futuro + (aberta ? varAte / pass * (dias - pass) : 0);
+    if (aberta) tot.fechada = false;
+    tot.ini = tot.ini && tot.ini < j.ini ? tot.ini : j.ini; tot.fim = tot.fim > j.fim ? tot.fim : j.fim; tot.nomes.push(c.nome);
+  });
+  return tot;
+}
+function termoConta(t, m) {
+  const tn = ' ' + t.trim() + ' ';
+  const n = tn.match(/(?:r\$\s?)?(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:,\d{1,2})?)\s*(mil)?/);
+  if (n && !/fatura|cartao|salario|gasto|aluguel/.test(tn)) {
+    // "5.000" é cinco mil (ponto de milhar); "5000,50" e "5.000,50" seguem o formato brasileiro
+    const v = (/,/.test(n[1]) ? valorBR(n[1]) : +n[1].replace(/\./g, '')) * (n[2] ? 1000 : 1);
+    return { nome: brl(v), v };
+  }
+  if (/fatura|cartao|credito/.test(tn)) {
+    const cs = C.cartoes.filter(c => tn.includes(' ' + nk(c.nome)) || (c.banco && tn.includes(' ' + nk(c.banco))));
+    const lista = cs.length ? cs : C.cartoes;
+    if (!lista.length) { const v = sum(L_ALL.filter(l => l.kind === 'cartao' && l.mes === m && isDesp(l))); return { nome: 'gastos no cartão', v }; }
+    const f = faturaDe(lista, m);
+    return { nome: `fatura ${lista.length > 1 && !cs.length ? 'dos cartões' : 'do ' + f.nomes.join(' e do ')} (${ddmm(f.ini)} a ${ddmm(f.fim)}${f.fechada ? ', fechada' : ', até hoje'})`, v: f.ate, proj: f.fechada ? null : f.proj, fim: f.fim };
+  }
+  if (/salario|holerite|pagamento do mes/.test(tn)) {
+    const real = sum(L_ALL.filter(l => l.mes === m && l.sub === 'Salário' && !l.estimado));
+    return SAL_CHEIO ? { nome: 'salário (o que você informou)', v: SAL_CHEIO, nota: real && Math.abs(real - SAL_CHEIO) > 1 ? `nos extratos deste mês entraram ${brl0(real)} de salário` : '' } : { nome: 'salário recebido no mês', v: real };
+  }
+  if (/renda|entrad|receita|ganho|recebo|recebi/.test(tn)) { const c = semCalc(() => calc(periodo(m))); return { nome: 'entradas do mês (recebido + o que ainda vai cair)', v: c.entradas }; }
+  if (/\bmeta\b|guardar|poupan|investir/.test(tn)) return { nome: 'meta de guardar', v: P.metaPoupanca };
+  if (/\bva\b|\bvr\b|vale/.test(tn)) return { nome: 'vale-alimentação', v: VA_PADRAO };
+  if (/contas fixas|fixos|fixas/.test(tn)) return { nome: 'contas fixas do mês', v: sum(L_ALL.filter(l => l.mes === m && isDesp(l) && l.fv === 'Fixo')) };
+  if (/\btudo\b|gastos|despesas|gastei|o que gastei/.test(tn) && !filtroDe(tn).ativo) return { nome: 'tudo o que já gastei no mês', v: sum(L_ALL.filter(l => l.mes === m && isDesp(l) && l.data <= HOJE)) };
+  const f = filtroDe(tn);
+  if (f.ativo) { const v = sum(L_ALL.filter(l => l.mes === m && isDesp(l) && f.f(l))); return { nome: `gastos com ${f.label} no mês${v ? '' : ' (nada encontrado nos arquivos deste mês)'}`, v }; }
+  return null;
+}
+function rConta(q, per) {
+  const m = per && per.meses.length === 1 ? per.meses[0] : MES_ATUAL;
+  const [esq, ...resto] = q.split(RX_MENOS);
+  // o primeiro termo é o último "valor" que aparece antes do "menos" (ex.: "fazendo a conta do meu salário")
+  const pedacos = esq.split(/\bdo\b|\bda\b|\bde\b|\bmeu\b|\bminha\b/).reverse();
+  let a = null; for (const p of [esq, ...pedacos]) { a = termoConta(p, m); if (a) break; }
+  // "a fatura, o aluguel e a meta": separa nos "e", "mais" e nos artigos que abrem cada item
+  const b = (' ' + resto.join(' menos ') + ' ').split(/\s(?:e|mais|com|o|a|os|as)\s/).filter(t => t.trim()).map(t => termoConta(t, m)).filter(Boolean);
+  if (!a || !b.length) return null;
+  const tot = a.v - sum(b, x => x.v), c = semCalc(() => calc(periodo(m)));
+  const out = [`<b>${cap(a.nome)}</b>: ${brl(a.v)}`, ...b.map(x => `<b>− ${x.nome}</b>: ${brl(x.v)}`), `<b>= ${tot >= 0 ? 'sobram' : 'faltam'} ${brl(Math.abs(tot))}</b>`];
+  if (a.nota) out.push(`(${a.nota})`);
+  const proj = b.find(x => x.proj != null);
+  if (proj) { const t2 = a.v - sum(b, x => x.proj ?? x.v); out.push(`A fatura ainda está aberta até ${ddmm(proj.fim)}. No ritmo atual ela fecha em cerca de <b>${brl0(proj.proj)}</b>, o que deixaria <b>${t2 >= 0 ? 'sobrando ' : 'faltando '}${brl0(Math.abs(t2))}</b>.`); }
+  if (m === MES_ATUAL && !c.passado) {
+    const base = proj ? a.v - sum(b, x => x.proj ?? x.v) : tot, dias = c.diasRest;
+    out.push(base > 0 ? `Dá cerca de <b>${brl0(base / dias)} por dia</b> nos ${dias} dias que faltam do mês.` : 'Não sobra espaço para gastar mais neste mês sem passar do valor.');
+    const outros = c.gasto - sum(b.filter(x => /fatura|cartao/.test(x.nome)), x => x.v);
+    if (proj && outros > 1) out.push(`Fora do cartão, já saíram ${brl0(outros)} das contas neste mês (PIX, débito, boletos), que não entram nessa conta.`);
+  }
+  return out.join('\n');
+}
+// "quanto está a fatura do Nubank?" — valor até hoje e, se ainda aberta, a projeção até fechar
+function rFatura(q, per) {
+  const m = per && per.meses.length === 1 ? per.meses[0] : MES_ATUAL;
+  const t = termoConta(q.slice(q.indexOf('fatura')), m);
+  if (!t || !/fatura/.test(t.nome)) return null;
+  const out = [`${cap(t.nome)}: <b>${brl(t.v)}</b>.`];
+  if (t.proj != null) out.push(`Ela fecha em ${ddmm(t.fim)}. No ritmo atual, deve fechar em cerca de <b>${brl0(t.proj)}</b>.`);
+  if (SAL_CHEIO) out.push(`Comparando com o salário que você informou (${brl0(SAL_CHEIO)}): ${t.proj != null ? `a fatura projetada é ${Math.round(t.proj / SAL_CHEIO * 100)}% dele` : `a fatura é ${Math.round(t.v / SAL_CHEIO * 100)}% dele`}. Pergunte “salário menos a fatura” para ver o que sobra.`);
+  return out.join('\n');
+}
+/* ---- mais perguntas sobre os dados ---- */
+const despDe = (meses, f) => L_ALL.filter(l => isDesp(l) && meses.includes(l.mes) && ate(l) && f.f(l));
+// todos os meses citados, na ordem ("outubro x setembro", "setembro e agosto", "este mês e o passado")
+function mesesDe(q) {
+  const ms = [], ano = +MES_ATUAL.slice(0, 4), anos = [...q.matchAll(/\b(20\d{2})\b/g)].map(m => +m[1]);
+  const todos = { ...MESES_N, ...MES_ABR };
+  [...q.matchAll(/\s([a-z]+)(?=\s)/g)].forEach(x => {
+    const n = todos[x[1]]; if (!n) return;
+    const mm = pad(n), a = anos[ms.length] || anos[0] || (`${ano}-${mm}` > MES_ATUAL ? ano - 1 : ano);
+    ms.push(`${a}-${mm}`);
+  });
+  if (/(este|esse|neste|nesse) mes|mes atual/.test(q)) ms.push(MES_ATUAL);
+  if (/mes passado|mes anterior|ultimo mes/.test(q)) ms.push(prevMes(MES_ATUAL));
+  return [...new Set(ms)];
+}
+const fechadosRecentes = n => { const r = []; let m = MES_ATUAL; while (r.length < n) { m = prevMes(m); if (m < PRIMEIRO_MES) break; if (L_ALL.some(l => l.mes === m && !l.manual && !l.estimado)) r.unshift(m); } return r; };
+function rCompararMeses(m1, m2, f) {
+  // m1 = mês de referência (mais recente), m2 = o de comparação
+  if (m1 < m2) [m1, m2] = [m2, m1];
+  const a = despDe([m1], f), b = despDe([m2], f), va = sum(a), vb = sum(b), d = va - vb;
+  const parcial = m1 === MES_ATUAL;
+  const out = [`${f.ativo ? cap(esc(f.label)) : 'Gasto total'}: <b>${mNome(m1)}</b> ${brl0(va)}${parcial ? ' (até hoje)' : ''} × <b>${mNome(m2)}</b> ${brl0(vb)}.`,
+    vb ? `Gastou <b>${brl0(Math.abs(d))} a ${d >= 0 ? 'mais' : 'menos'}</b> em ${mNome(m1)} (${d >= 0 ? '+' : '−'}${Math.round(Math.abs(d) / vb * 100)}%).` : `Não há gastos ${f.ativo ? 'desse tipo ' : ''}em ${mNome(m2)} para comparar.`];
+  if (parcial) {
+    const dia = +HOJE.slice(8), mesmoDia = sum(b.filter(l => +l.data.slice(8) <= dia || l.kind === 'cartao' && l.data.slice(0, 7) < m2));
+    out.push(`Comparando até o mesmo dia ${dia}: ${mNome(m2)} estava em ${brl0(mesmoDia)}, então ${va > mesmoDia ? `este mês está ${brl0(va - mesmoDia)} acima` : `este mês está ${brl0(mesmoDia - va)} abaixo`}.`);
+  }
+  const k = f.ativo ? 'sub' : 'cat', g = {};
+  a.forEach(l => { g[l[k]] = (g[l[k]] || 0) + l.valor; }); b.forEach(l => { g[l[k]] = (g[l[k]] || 0) - l.valor; });
+  const mud = Object.entries(g).filter(x => Math.abs(x[1]) >= 20).sort((x, y) => Math.abs(y[1]) - Math.abs(x[1])).slice(0, 4);
+  if (mud.length > 1 || (mud.length && !f.ativo)) out.push('O que mais mudou:', ...mud.map(([c, v]) => `• ${esc(c)}: ${v >= 0 ? '+' : '−'}${brl0(Math.abs(v))}`));
+  return out.join('\n');
+}
+function rContagem(per, f) {
+  per ||= mesP(MES_ATUAL);
+  const ls = despDe(per.meses, f).filter(l => l.valor > 0);
+  if (!ls.length) return `Não encontrei ${f.ativo ? `gastos com ${esc(f.label)} ` : 'gastos '}${esc(noPer(per))}.`;
+  const tot = sum(ls), datas = ls.map(l => l.data).sort(), dias = Math.max(1, diffDays(per.meses[0] + '-01', per.meses.includes(MES_ATUAL) ? HOJE : periodo(per.meses.at(-1)).fim) + 1);
+  return [`${ls.length} ${ls.length === 1 ? 'vez' : 'vezes'} ${esc(noPer(per))}${f.ativo ? ` com ${esc(f.label)}` : ''}, somando <b>${brl(tot)}</b>.`,
+    `• Valor médio: <b>${brl(tot / ls.length)}</b> por vez`, `• Frequência: cerca de ${(ls.length / dias * 7).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} por semana`,
+    `• Primeira: ${ddmm(datas[0])} · última: ${ddmm(datas.at(-1))}`].join('\n');
+}
+function rUltima(f) {
+  const ls = L_ALL.filter(l => isDesp(l) && ate(l) && f.f(l) && l.valor > 0 && !l.manual).sort((a, b) => b.data.localeCompare(a.data));
+  if (!f.ativo) return 'Me diga o quê: por exemplo “quando foi a última vez que pedi ifood?”';
+  if (!ls.length) return `Não encontrei gastos com ${esc(f.label)} nos seus arquivos.`;
+  const u = ls[0], dias = diffDays(u.data, HOJE);
+  return [`A última vez com ${esc(f.label)} foi em <b>${ddmm(u.data)}/${u.data.slice(2, 4)}</b> (${dias === 0 ? 'hoje' : dias === 1 ? 'ontem' : `há ${dias} dias`}): ${esc(u.desc)}, ${brl(u.valor)}.`,
+    ...ls.slice(1, 4).map(l => `• antes: ${ddmm(l.data)} ${esc(l.desc.slice(0, 36))}, ${brl(l.valor)}`)].join('\n');
+}
+function rMaior(per, f) {
+  per ||= mesP(MES_ATUAL);
+  const ls = despDe(per.meses, f).sort((a, b) => b.valor - a.valor);
+  if (!ls.length) return `Não encontrei gastos ${esc(noPer(per))}.`;
+  const t = ls[0];
+  return [`O maior gasto ${esc(noPer(per))}${f.ativo ? ` com ${esc(f.label)}` : ''} foi <b>${esc(t.desc)}</b>: <b>${brl(t.valor)}</b> em ${ddmm(t.data)} (${esc(t.cat)} › ${esc(t.sub)}${t.parcela ? ', parcela ' + t.parcela : ''}).`,
+    'Os seguintes:', ...ls.slice(1, 5).map(linhaL)].join('\n');
+}
+function rAssinaturas() {
+  const fech = fechadosRecentes(3); if (!fech.length) return 'Ainda não há um mês fechado para identificar o que se repete.';
+  const g = {};
+  L_ALL.filter(l => isDesp(l) && fech.includes(l.mes) && (l.fv === 'Fixo' || l.cat === 'Assinaturas') && !l.estimado).forEach(l => {
+    const k = l.cat === 'Assinaturas' ? nk(parcelaBase(l.desc)).replace(/[^a-z ]/g, '').trim().slice(0, 24) || l.sub : l.sub;
+    (g[k] ||= { nome: l.cat === 'Assinaturas' ? parcelaBase(l.desc) : l.sub, cat: l.cat, meses: new Set(), v: [] }); g[k].meses.add(l.mes); g[k].v.push(l.valor);
+  });
+  const lista = Object.values(g).filter(x => x.meses.size >= Math.min(2, fech.length)).map(x => ({ ...x, tipico: sum(x.v, v => v) / x.meses.size })).sort((a, b) => b.tipico - a.tipico);
+  if (!lista.length) return 'Não encontrei gastos fixos que se repetem nos últimos meses.';
+  const tot = sum(lista, x => x.tipico);
+  return [`Gastos que se repetem todo mês (${fech.map(mLabel).join(', ')}): cerca de <b>${brl0(tot)} por mês</b>${P.renda ? ` (${Math.round(tot / P.renda * 100)}% da renda)` : ''}.`,
+    ...lista.slice(0, 12).map(x => `• ${esc(x.nome.slice(0, 34))} (${esc(x.cat)}): ${brl0(x.tipico)}/mês`)].join('\n');
+}
+function rMedia(per, f) {
+  const meses = per && per.varios ? per.meses.filter(m => m < MES_ATUAL) : fechadosRecentes(per && per.meses.length === 1 ? 6 : 3);
+  if (!meses.length) return 'Ainda não há mês fechado para calcular a média.';
+  const por = meses.map(m => [m, sum(despDe([m], f))]), med = sum(por, x => x[1]) / por.length;
+  const ord = [...por].sort((a, b) => b[1] - a[1]);
+  return [`Em média, ${f.ativo ? `com ${esc(f.label)} ` : ''}você gasta <b>${brl0(med)} por mês</b> (${meses.length} ${meses.length === 1 ? 'mês fechado' : 'meses fechados'}: ${mLabel(meses[0])} a ${mLabel(meses.at(-1))}).`,
+    meses.length > 1 ? `• Mês mais alto: ${mLabel(ord[0][0])}, ${brl0(ord[0][1])} · mais baixo: ${mLabel(ord.at(-1)[0])}, ${brl0(ord.at(-1)[1])}` : '',
+    `• Por dia: cerca de ${brl0(med / 30)}`].filter(Boolean).join('\n');
+}
+function rPorDia(per, f) {
+  per ||= mesP(MES_ATUAL);
+  const ls = despDe(per.meses, f), tot = sum(ls), atual = per.meses.includes(MES_ATUAL);
+  const dias = Math.max(1, diffDays(per.meses[0] + '-01', atual ? HOJE : periodo(per.meses.at(-1)).fim) + 1);
+  const out = [`${f.ativo ? cap(esc(f.label)) : 'Gastos'} ${esc(noPer(per))}: ${brl0(tot)} em ${dias} dias = <b>${brl0(tot / dias)} por dia</b> (${brl0(tot / dias * 7)} por semana).`];
+  if (atual && per.meses.length === 1) { const p = periodo(MES_ATUAL), tdias = diffDays(p.ini, p.fim) + 1; out.push(`Nesse ritmo, o mês fecha em cerca de ${brl0(tot / dias * tdias)}.`); }
+  return out.join('\n');
+}
+function rPercent(q, per, f) {
+  const m = per && per.meses.length === 1 ? per.meses[0] : MES_ATUAL;
+  const base = /salario|renda|ganho/.test(q) ? termoConta(/salario/.test(q) ? 'salario' : 'renda', m) : { nome: `tudo o que gastei ${noPer(mesP(m))}`, v: sum(despDe([m], filtroDe(' '))) };
+  const parte = /fatura|cartao/.test(q) ? termoConta(q.slice(q.search(/fatura|cartao/)), m) : f.ativo ? { nome: `gastos com ${f.label}`, v: sum(despDe([m], f)) } : /gast|despes/.test(q) ? { nome: 'tudo o que gastei', v: sum(despDe([m], filtroDe(' '))) } : null;
+  if (!parte || !base || !base.v) return null;
+  return [`${cap(esc(parte.nome))}: ${brl0(parte.v)}, que é <b>${Math.round(parte.v / base.v * 100)}%</b> de ${esc(base.nome)} (${brl0(base.v)}).`,
+    parte.proj != null ? `No ritmo atual, a fatura fecha em ${brl0(parte.proj)}: ${Math.round(parte.proj / base.v * 100)}%.` : ''].filter(Boolean).join('\n');
+}
+// contas só com números: "quanto é 5000 - 1200 - 300", "1.500 x 12", "8000/3"
+function rCalculadora(txt) {
+  let s = nk(txt).replace(/quanto (e|da)|calcule|calcula|conta|faz|faca|r\$|=|\?/g, ' ').trim();
+  if (!/\d/.test(s) || !/[-+*/x]/.test(s) || /[a-wyz]/.test(s)) return null;
+  // "5.000" = cinco mil; "1.234,56" e "12,5" no formato brasileiro
+  s = s.replace(/(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+,\d+)/g, n => /,/.test(n) ? valorBR(n) : n.replace(/\./g, '')).replace(/x/g, '*');
+  if (!/^[\d.\s+\-*/()]+$/.test(s)) return null;
+  try { const v = Function(`"use strict";return (${s})`)(); if (!isFinite(v)) return null; return `${esc(txt.replace(/\?/g, '').trim())} = <b>${v.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</b>`; } catch { return null; }
+}
+const SUG_DE = { gasto: ['E no mês passado?', 'Quantas vezes?', 'Média por mês'], ranking: ['Comparar com o mês passado', 'Qual foi o maior gasto?'], conta: ['Quanto está a fatura?', 'Quais gastos posso cortar?'],
+  fatura: ['Salário menos a fatura', 'Quanto % do salário vai para a fatura?'], comparaMes: ['Onde mais gastei este mês?', 'Quais gastos posso cortar?'], contagem: ['Quando foi a última vez?', 'Média por mês'],
+  receitas: ['Quanto ainda posso gastar este mês?'], mes: ['Salário menos a fatura', 'O que ainda vai cair este mês?'], assinaturas: ['Quais gastos posso cortar?'] };
+// O assistente lembra o assunto da pergunta anterior: "e em setembro?", "e com uber?", "quantas vezes?" reaproveitam
+// o tipo de pergunta, o período e o filtro da anterior, trocando só o que a pessoa mudou.
+let CTX = null;
 function respostaLocal(txt) {
   if (!L_ALL.some(l => l.kind !== 'manual' && !l.estimado)) return 'Ainda não há lançamentos no painel. Envie seus extratos na aba “Enviar extratos” e me pergunte de novo.';
-  const q = ' ' + nk(txt).replace(/[?!.,;:()"]/g, ' ').replace(/\s+/g, ' ').trim() + ' ';
-  const per = periodoDe(q), f = filtroDe(q), tem = rx => rx.test(q);
-  if (tem(/posso gastar|sobra|sobrar|vou fechar|como (estou|esta|ta|vai)|termin|fechar o mes|limite|saldo/)) return rMes();
-  if (tem(/cortar|economizar|reduzir|diminuir|enxugar|gastar menos/)) return rCortar();
-  if (tem(/\bmetas?\b|orcamento|estour|dentro/)) return rMetas(per);
-  if (tem(/parcela|vai cair|a pagar|contas fixas|previst|falta pagar/)) return rPendentes();
-  if (tem(/classificar|sem categoria/)) return rClassificar();
-  if (per && per.anos) return rComparar(per.anos, f);
-  if (tem(/recebi|receb|receita|entrou|entrad|ganhei|\brenda\b/)) return rReceitas(per, f);
-  if (tem(/onde|com o que|maiores|maior|mais gastei|\btop\b|principais|ranking/)) return rRanking(per || mesP(MES_ATUAL), f);
-  const verbo = tem(/gast|pagu|despes|saiu|sairam|custo|custou/);
-  if (verbo || f.ativo) { const p = per || mesP(MES_ATUAL); if (!verbo && !L_ALL.some(l => isDesp(l) && p.meses.includes(l.mes) && f.f(l))) return ajuda(); return rGasto(p, f); }
-  return ajuda();
+  const calcR = rCalculadora(txt); if (calcR) return calcR;
+  // tira a pontuação, menos ponto e vírgula dentro de números ("5.000", "1.234,56")
+  const q = ' ' + nk(txt).replace(/[?!;:()"]/g, ' ').replace(/(?<!\d)[.,]|[.,](?!\d)/g, ' ').replace(/\s+/g, ' ').trim() + ' ';
+  const tem = rx => rx.test(q), palavras = q.trim().split(' ').length;
+  if (/^ (oi|ola|bom dia|boa tarde|boa noite|e ai|opa|hey) /.test(q) && palavras <= 4) return `Oi${C.nome ? ', ' + esc(C.nome) : ''}! Pergunte sobre seus gastos: quanto ainda pode gastar, quanto foi a fatura, onde mais gastou, contas como “salário menos a fatura”…`;
+  if (/^ (obrigad\w*|valeu|vlw|show|top|perfeito|otimo|massa|blz|beleza|ok|entendi)\b/.test(q) && palavras <= 4) { CTX = null; return 'De nada! Se quiser, pergunte outra coisa.'; }
+  let per = periodoDe(q), f = filtroDe(q);
+  // sem palavra de pergunta nova, uma frase curta que muda só período ou filtro continua a anterior
+  const novaPergunta = tem(/menos|fatura|posso gastar|sobra|cortar|economiz|meta|orcamento|parcela|vai cair|classificar|recebi|receb|entrou|onde|ranking|quantas|quantos|vezes|ultima|ultimo|quando|maior|mais car|assinatura|todo mes|fix|media|por dia|por semana|porcent|%|compar|\bvs\b| x |gast|pagu/);
+  // pergunta curta só com o "como" ("quantas vezes?", "média por mês", "e por dia?"): mesmo período e filtro da anterior
+  const soComo = palavras <= 5 && !f.ativo && !per && !tem(/gast|pagu|despes/) && tem(/quantas|vezes|media|por dia|por semana|compar|maior|ultima vez/);
+  const continua = CTX && (soComo || ((/^ (e|tambem|agora) /.test(q) || (!novaPergunta && palavras <= 5)) && (per || f.ativo)));
+  let tipo = null;
+  if (continua) {
+    const filtroNovo = f.ativo;
+    if (!per) per = CTX.per; if (!f.ativo && CTX.fq) f = filtroDe(CTX.fq);
+    tipo = tem(/quantas|quantos|vezes/) ? 'contagem' : tem(/media/) ? 'media' : tem(/por dia|por semana/) ? 'porDia' : tem(/compar/) ? 'comparaMes' : tem(/maior/) ? 'maior' : tem(/ultima vez/) ? 'ultima' : CTX.tipo;
+    // "e o uber?" depois de uma pergunta que não usa filtro (quanto posso gastar, metas…) vira "quanto gastei com uber"
+    if (filtroNovo && ['mes', 'conta', 'fatura', 'cortar', 'metas', 'pendentes', 'assinaturas', 'classificar'].includes(tipo)) tipo = 'gasto';
+  }
+  const ms = mesesDe(q);
+  // "menos" de comparação ("gastei menos que", "a menos") não é conta
+  const qConta = q.replace(/\b(gast\w*|a|de|bem|muito|pouco|um pouco|economizei|paguei) menos\b|\bmenos (do )?que\b/g, ' ');
+  if (!tipo) tipo = RX_MENOS.test(qConta) ? 'conta'
+    : tem(/porcent|%|que parte|quantos por cento/) ? 'percent'
+    : tem(/fatura/) && !tem(/enviar|baixar|arquivo|pdf|csv/) ? 'fatura'
+    : tem(/compar|\bvs\b|versus| x |em relacao|(mais|menos)( car[oa]| barat[oa])?( do)? que|que (no )?mes passado/) && (ms.length >= 2 || tem(/mes passado|anterior/)) ? 'comparaMes'
+    : tem(/posso gastar|sobra|sobrar|vou fechar|vou gastar|previsao|projecao|como (estou|esta|ta|vai)|termin|fechar o mes|limite|saldo/) ? 'mes'
+    : tem(/cortar|economizar|reduzir|diminuir|enxugar|gastar menos/) ? 'cortar'
+    : tem(/assinatura|todo mes|recorrente|fixos|gastos fixos|contas fixas que|o que pago/) && !f.ativo || tem(/quais (sao )?(as )?(minhas )?assinaturas/) ? 'assinaturas'
+    : tem(/\bmetas?\b|orcamento|estour|dentro/) ? 'metas'
+    : tem(/parcela|vai cair|a pagar|contas fixas|previst|falta pagar/) ? 'pendentes'
+    : tem(/classificar|sem categoria/) ? 'classificar'
+    : per && per.anos ? 'comparaAnos'
+    : tem(/quantas vezes|quantos (pedidos|lancamentos|gastos|compras)|quantas (compras|corridas|vezes)|com que frequencia/) ? 'contagem'
+    : tem(/ultima vez|quando foi|ultimo (pedido|gasto|lancamento)|ultima (compra|corrida)/) ? 'ultima'
+    : tem(/maior (compra|gasto|despesa|lancamento)|mais car[oa]|compra mais/) ? 'maior'
+    : tem(/media|normalmente|costumo|em geral|geralmente/) ? 'media'
+    : tem(/por dia|por semana|diario|diaria|semanal/) ? 'porDia'
+    : tem(/recebi|receb|receita|entrou|entrad|ganhei|\brenda\b/) ? 'receitas'
+    : tem(/onde|com o que|maiores|maior|mais gastei|\btop\b|principais|ranking/) ? 'ranking'
+    : tem(/gast|pagu|despes|saiu|sairam|custo|custou/) || f.ativo ? 'gasto' : null;
+  const q2 = continua && CTX.q ? CTX.q : q;
+  const p1 = per || mesP(MES_ATUAL);
+  const exec = {
+    conta: () => rConta(continua ? CTX.q : q, per), fatura: () => rFatura(continua && !tem(/fatura/) ? CTX.q : q, per), mes: rMes, cortar: rCortar, metas: () => rMetas(per),
+    pendentes: rPendentes, classificar: rClassificar, comparaAnos: () => rComparar(per.anos, f), assinaturas: rAssinaturas,
+    comparaMes: () => {
+      // meses citados pelo nome valem mais que "mês passado"; com um só nome, compara com o mês anterior a ele;
+      // sem nome nenhum ("gastei mais que no mês passado?"), compara este mês com o anterior
+      const nomes = mesesDe(q.replace(/(este|esse|neste|nesse) mes|mes atual|mes passado|mes anterior|ultimo mes/g, ' '));
+      if (nomes.length >= 2) return rCompararMeses(nomes[0], nomes[1], f);
+      if (nomes.length === 1) return rCompararMeses(nomes[0], prevMes(nomes[0]), f);
+      const base = continua && CTX.per && CTX.per.meses.length === 1 ? CTX.per.meses[0] : MES_ATUAL;
+      return rCompararMeses(base, prevMes(base), f);
+    },
+    contagem: () => rContagem(per, f), ultima: () => rUltima(f), maior: () => rMaior(per, f), media: () => rMedia(per, f), porDia: () => rPorDia(per, f),
+    percent: () => rPercent(q, per, f), receitas: () => rReceitas(per, f), ranking: () => rRanking(p1, f),
+    gasto: () => { if (!tem(/gast|pagu|despes|saiu|custo/) && !continua && !L_ALL.some(l => isDesp(l) && p1.meses.includes(l.mes) && f.f(l))) return null; return rGasto(p1, f); },
+  };
+  const r = tipo && exec[tipo] ? exec[tipo]() : null;
+  if (!r) return ajuda();
+  // guarda o assunto para a próxima pergunta (o filtro vai como texto para ser refeito sobre os dados atuais)
+  const semFiltro = ['mes', 'conta', 'fatura', 'cortar', 'metas', 'pendentes', 'assinaturas', 'classificar'].includes(tipo);
+  CTX = { tipo, per, fq: f.ativo && !semFiltro ? (continua && !filtroDe(q).ativo ? CTX.fq : q) : '', q: tipo === 'conta' || tipo === 'fatura' ? q2 : q };
+  return r;
 }
 function responderLocal(txt) {
   chatMsg('u', esc(txt)); $('#chatIn').value = '';
   let r; try { r = respostaLocal(txt); } catch { r = 'Não consegui responder essa. Tente de outro jeito, por exemplo: “quanto gastei com mercado em setembro?”'; }
   chatMsg('a', r);
+  // atalhos para continuar a conversa a partir do que acabou de ser respondido
+  const sug = CTX && SUG_DE[CTX.tipo];
+  if (sug) { const ch = document.createElement('div'); ch.className = 'chips'; ch.innerHTML = sug.map(s => `<button type="button">${esc(s)}</button>`).join(''); ch.querySelectorAll('button').forEach(b => b.onclick = () => { ch.remove(); perguntar(b.textContent); }); $('#chatBody').appendChild(ch); $('#chatBody').scrollTop = 1e9; }
 }
 function chatMsg(cls, html) { const d = document.createElement('div'); d.className = 'msg ' + cls; d.innerHTML = html; $('#chatBody').appendChild(d); $('#chatBody').scrollTop = 1e9; return d; }
 async function perguntar(txt) {
