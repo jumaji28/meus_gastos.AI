@@ -178,6 +178,11 @@ h1,h2,h3{font-family:var(--f-display);font-weight:700;margin:0;text-wrap:balance
 .dv-bts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .dv-bts .btn{justify-content:center;padding:12px;font-size:14px}
 @media (max-width:520px){.dv-bts{grid-template-columns:1fr}}
+#stale{display:grid;gap:10px}
+#stale:empty{display:none}
+.cl-bts{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.cl-bts .btn{justify-content:center;padding:11px 8px;font-size:14px}
+.cl-bts .ign{grid-column:1/-1;color:var(--muted)}
 .btn{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font-weight:600;font-size:13px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink)}
 .btn:hover{border-color:var(--accent)}
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
@@ -787,6 +792,14 @@ body{margin:0}
   <label class="chk"><input type="checkbox" id="dvLembrar" checked><span>Fazer o mesmo com as próximas parecidas<small id="dvKw"></small></span></label>
   <footer><span class="small muted esq" id="dvCont"></span><button class="btn" id="dvDepois">Responder depois</button></footer>
 </div></div>
+<div class="modal-bg" id="cls" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="clH" style="width:min(560px,100%)">
+  <button class="xm" id="clX" aria-label="Fechar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  <header><h2 id="clH">Esse gasto é de quê?</h2><p>Um toque e ele entra na categoria certa. Os maiores vêm primeiro.</p></header>
+  <div class="dv-item" id="clItem"></div>
+  <div class="cl-bts" id="clBts"></div>
+  <label class="chk"><input type="checkbox" id="clLembrar" checked><span>Fazer o mesmo com as próximas parecidas<small id="clKw"></small></span></label>
+  <footer><span class="small muted esq" id="clCont"></span><button class="btn" id="clPular">Pular</button><button class="btn" id="clFim">Terminar depois</button></footer>
+</div></div>
 <div class="modal-bg" id="inst" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="instH">
   <button class="xm" id="instX" aria-label="Fechar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   <header><h2 id="instH">Instalar no iPhone</h2><p>Leva 10 segundos. O Meus Gastos ganha um ícone e abre em tela cheia, como um app.</p></header>
@@ -891,7 +904,8 @@ const cfgPadrao = () => ({ nome: '', titular: '', objetivo: 'entender', salario:
 function normalizarDB(d) {
   d = d && typeof d === 'object' ? d : {};
   // desde 21/10/2026 tudo conta pela data do lançamento (no cartão, a da compra); o ciclo da fatura vira um atalho da linha do tempo
-  return { v: 1, cfg: Object.assign(cfgPadrao(), d.cfg || {}, { modoCartao: 'compra' }), lanc: Array.isArray(d.lanc) ? d.lanc : [], arquivos: Array.isArray(d.arquivos) ? d.arquivos : [],
+  // e PIX recebido é receita (rateio) e o pagamento de fatura se confere sozinho (todasFaturas): as perguntas saíram
+  return { v: 1, cfg: Object.assign(cfgPadrao(), d.cfg || {}, { modoCartao: 'compra', rateio: 'receita', todasFaturas: true }), lanc: Array.isArray(d.lanc) ? d.lanc : [], arquivos: Array.isArray(d.arquivos) ? d.arquivos : [],
     regras: Array.isArray(d.regras) ? d.regras : [], prontos: !!d.prontos, prox: d.prox || 1,
     // ajustes feitos à mão, por lançamento: { [id]: { parte?, valor?, cat?, sub?, fv?, ignorar?, nota? } }
     ajustes: d.ajustes && typeof d.ajustes === 'object' ? d.ajustes : {},
@@ -987,8 +1001,7 @@ function classificar(r) {
   if (!cartao && ehTitular(d)) return fim('Transferencia', 'Movimentação interna', 'Entre minhas contas', 'Variável', 'seu nome no extrato');
   // pagamento de fatura no extrato da conta: se a fatura detalhada vem junto, ele contaria duas vezes
   if (!cartao && r.v < 0 && /fatura|pagto cartao|pagamento cartao|pagamento de cartao|pag cartao|cartao de credito|pgto cartao/.test(d) && !/seguro cartao/.test(d))
-    return C.todasFaturas ? fim('Transferencia', 'Movimentação interna', 'Pagamento de fatura', 'Variável', 'pagamento de fatura (as compras vêm na fatura)')
-      : fim('Despesa', 'Outros', 'Fatura de cartão sem detalhe', 'Variável', 'pagamento de fatura sem a fatura detalhada');
+    return fim('Transferencia', 'Movimentação interna', 'Pagamento de fatura', 'Variável', 'pagamento de fatura (as compras vêm na fatura)');  // conferirFaturas decide
   if (!cartao && entrada && C.empresa && d.includes(nk(C.empresa).trim())) return fim('Receita', 'Receita', 'Salário', 'Fixo', 'empresa do salário');
   for (const g of REGRAS_PADRAO) if ((g.s === '*' || (g.s === '+') === entrada) && g.rx.some(rx => rx.test(d))) return fim(tipoDaCat(g.cat), g.cat, g.sub, g.fv, 'padrão: ' + g.sub);
   const pix = /\bpix\b/.test(d);
@@ -997,8 +1010,9 @@ function classificar(r) {
     if (pix || /transf|\bted\b|\bdoc\b/.test(d)) {
       // rateio é valor pequeno; uma transferência grande de outra pessoa não pode virar gasto negativo
       const renda = rendaInf(), v = Math.abs(r.v);
-      if (renda ? v > 2 * renda : v > 10000) return fim('Transferencia', 'Movimentação interna', 'Entrada extraordinária', 'Variável', 'entrada maior que 2× a renda: fica fora da renda');
-      if (C.rateio === 'abate' && v <= limiteRateio()) return fim('Despesa', 'Outros', 'Reembolsos de rateio', 'Variável', 'PIX recebido abate o gasto');
+      // entrada grande de outra pessoa é receita, mas fica à parte para não parecer renda de todo mês
+      if (renda ? v > 2 * renda : v > 10000) return fim('Receita', 'Receita', 'Receita extraordinária', 'Variável', 'entrada maior que 2× a renda');
+      // desde 21/10/2026 PIX recebido é receita; a parte de uma conta dividida se marca na edição (categoria de gasto abate)
       return fim('Receita', 'Receita', 'PIX recebidos', 'Variável', 'PIX recebido');
     }
     return fim('Receita', 'Receita', 'Outras entradas', 'Variável');
@@ -1260,6 +1274,18 @@ function casarTransferencias(out) {
     usadas.add(e); s.par = e; e.par = s;
   });
 }
+// Pagamento de fatura no extrato da conta: fica fora das contas só se a fatura detalhada daquele cartão foi enviada
+// (há compras dele nos 40 dias antes do pagamento); senão entra como gasto, para o dinheiro não sumir do painel.
+// O cartão sai do banco escrito na descrição ou, sem ele, do banco da conta que pagou; sem cartão desse banco, vale qualquer um.
+function conferirFaturas(out) {
+  const compras = DB.lanc.filter(r => r.kind === 'cartao');
+  out.filter(l => l.kind === 'conta' && l.sub === 'Pagamento de fatura' && !decidido(l)).forEach(l => {
+    const b = bancoPor(l.desc) || l.banco, ids = C.cartoes.filter(c => c.banco === b).map(c => c.id), ini = addDays(l.data, -40);
+    const coberta = compras.some(r => (!ids.length || ids.includes(r.cartao)) && r.data >= ini && r.data < l.data);
+    if (!coberta) Object.assign(l, { tipo: 'Despesa', cat: 'Outros', sub: 'Fatura de cartão sem detalhe', valor: Math.abs(l.bruto),
+      obs: 'regra: pagamento de fatura sem a fatura detalhada nos arquivos (envie a fatura para ver as compras)' });
+  });
+}
 const RX_PROPRIA = / (caixinha|cofrinho|porquinho|reserva|cofre|guardad|mesma titularidade|mesmo titular|conta propria|entre contas|para mim)/;
 function duvidaTransf(l) {
   if (l.kind !== 'conta' || !l.id || decidido(l) || l.tipo === 'Ignorado' || l.sub === 'Salário') return '';
@@ -1320,7 +1346,7 @@ function rebuild() {
     aplicarAjuste(o, DB.ajustes[r.id], divs.find(d => d.rx.test(descN(r.desc))));
     out.push(o);
   });
-  casarTransferencias(out);
+  casarTransferencias(out); conferirFaturas(out);
   const compDe = l => l.kind === 'cartao' && cards[l.cartao] ? compCartao(cards[l.cartao], l.data) : l.data.slice(0, 7);
   const fechar = l => { l.mes = compDe(l); l.ano = +l.mes.slice(0, 4); l.tipoF = tipoDe(l); return l; };
   out.forEach(fechar);
@@ -1351,10 +1377,7 @@ function rebuild() {
   // Salário: curadoria com o valor informado nas respostas (C.salario, já líquido).
   //  1) mês sem salário reconhecido: a entrada de valor mais próximo do salário (±15%) vira salário,
   //     porque o banco nem sempre escreve "salário" na descrição;
-  //  2) mês fechado com salário abaixo de 90% do informado (só faturas enviadas, adiantamento sem o resto,
-  //     extrato da conta faltando): o painel completa com o que falta, marcado como estimado.
-  //     Se o mês vizinho recebeu bem mais que o salário (pagamento que escorregou de mês), não completa.
-  //     Mês com salário acima do informado (13º, férias, hora extra) fica como veio.
+  //  2) a mesma fonte pagadora em outro mês também é salário.
   SAL_MESES_EST = [];
   const salInf = +C.salario || 0;
   if (salInf > 0) {
@@ -1371,22 +1394,11 @@ function rebuild() {
     const fontes = new Set(out.filter(l => l.sub === 'Salário' && l.kind === 'conta').map(chaveSal).filter(k => k.length >= 6));
     out.filter(l => l.tipo === 'Receita' && l.kind === 'conta' && !['Salário', 'Rendimentos', 'Vale-alimentação'].includes(l.sub) && fontes.has(chaveSal(l)))
       .forEach(l => Object.assign(l, { sub: 'Salário', fv: 'Fixo', obs: 'reconhecido como salário: mesma fonte pagadora de outro mês' }));
-    for (let m = PRIMEIRO_MES; m < MES_ATUAL; m = nextMes(m)) {
-      const sal = salDe(m);
-      if (sal >= .9 * salInf || salDe(prevMes(m)) > 1.5 * salInf || salDe(nextMes(m)) > 1.5 * salInf) continue;
-      SAL_MESES_EST.push(m);
-      out.push({ id: 0, data: `${m}-${pad(diaEm(m, C.diaSalario || 5))}`, tipo: 'Receita', cat: 'Receita', sub: 'Salário', fv: 'Fixo', valor: r2(salInf - sal), forma: 'Estimativa', conta: 'Salário (estimado)', banco: 'Fora dos extratos',
-        parcela: '', desc: sal ? `Complemento de salário estimado (entraram ${brl0(sal)} de ${brl0(salInf)} informados)` : 'Salário estimado (valor informado; não apareceu nos extratos)', status: 'Estimado',
-        obs: 'estimativa: salário informado nas suas respostas', origem: 'estimativa do painel', kind: 'manual', cartao: '', mes: m, ano: +m.slice(0, 4), tipoF: 'Outros', estimado: true });
-    }
+    // 21/10/2026: o painel não completa mais o salário nem o VA que não vieram nos arquivos. Os números mostram só o que
+    // aconteceu; o mês sem salário ganha um aviso pedindo o extrato da conta (SAL_MESES_EST, usado só nesse aviso).
+    for (let m = PRIMEIRO_MES; m < MES_ATUAL; m = nextMes(m)) if (salDe(m) < .5 * salInf && salDe(prevMes(m)) < 1.5 * salInf) SAL_MESES_EST.push(m);
   }
-  // VA: nos meses fechados em que ele não aparece em nenhum extrato, entra o valor informado, marcado como estimado
   VA_MESES_REAIS = [...new Set(out.filter(l => isVA(l)).map(l => l.mes))].sort();
-  if (C.va > 0) for (let m = PRIMEIRO_MES; m < MES_ATUAL; m = nextMes(m)) {
-    if (VA_MESES_REAIS.includes(m)) continue;
-    out.push({ id: 0, data: `${m}-${pad(diaEm(m, C.diaSalario || 5))}`, tipo: 'Receita', cat: 'Receita', sub: 'Vale-alimentação', fv: 'Fixo', valor: +C.va, forma: 'Benefício', conta: 'Vale-alimentação', banco: 'Fora dos extratos',
-      parcela: '', desc: 'Vale-alimentação estimado (valor informado; não apareceu nos extratos)', status: 'Estimado', obs: 'estimativa: valor do VA informado nas suas respostas', origem: 'estimativa do painel', kind: 'manual', cartao: '', mes: m, ano: +m.slice(0, 4), tipoF: 'Outros', estimado: true });
-  }
   out.sort((a, b) => a.data.localeCompare(b.data) || a.id - b.id);
   L_ALL = out;
   L_ALL.forEach(l => l._mesN = cap(MESES_L[+l.mes.slice(5, 7) - 1]));
@@ -1588,37 +1600,38 @@ function staleNotice(c) {
 function renderMes() {
   const p = pAtual(), c = calc(p);
   pintarLinhaTempo(p);
-  $('#stale').innerHTML = TEM_DADOS ? avisoDuvidas() + (c.passado || c.futuro ? '' : avisoFaturas()) + staleNotice(c) : vazioHTML();
+  $('#stale').innerHTML = TEM_DADOS ? avisoDuvidas() + avisoClassificar() + (c.passado || c.futuro ? '' : avisoFaturas()) + staleNotice(c) : vazioHTML();
   const proxNome = MESES_L[+mesSeguinte(p.mes).slice(5) - 1];
   const aviso = !usaJanela() ? '' : p.cartoes.map(cw => c.corte > cw.fim
     ? `A fatura do cartão ${esc(cw.nome)} deste mês fechou em ${ddmm(cw.fim)}: compras nele a partir de ${ddmm(addDays(cw.fim, 1))} já contam em ${proxNome}.`
     : `No cartão ${esc(cw.nome)}, entram neste mês as compras até ${ddmm(cw.fim)}; a partir de ${ddmm(addDays(cw.fim, 1))} elas contam em ${proxNome}.`).join(' ');
   if (!p.mesInteiro) heroPeriodo(p, c); else {
-  // Um número principal: com quanto o mês termina, no ritmo atual e já guardando a meta.
+  // Número principal = o que aconteceu: entrou − saiu (até hoje). A previsão do fim do mês fica numa linha à parte:
   //   fim = entradas previstas − já gasto − o que vai cair − projeção dos variáveis − meta de guardar
   const fim = c.passado ? c.entradas - c.gasto - c.meta : c.saldoFim - c.meta;
+  const real = c.recebido - c.gasto, princ = c.futuro ? fim : real;
   const sinal = v => (v >= 0 ? '+' : '−') + brl0(Math.abs(v));
   const limiteDia = Math.max(0, c.livre) / c.diasRest;
   let rotulo, line, note;
   if (c.passado) {
-    const r = c.entradas - c.gasto;
-    rotulo = `Como ${p.label} terminou, já descontada a meta de guardar ${brl0(c.meta)}`;
-    line = `Entraram <strong>${brl0(c.entradas)}</strong> e saíram <strong>${brl0(c.gasto)}</strong>: ${r >= 0 ? `sobraram <strong class="pos">${brl0(r)}</strong>` : `faltaram <strong class="neg">${brl0(-r)}</strong>`} antes de guardar.`;
-    note = !c.meta ? '' : r >= c.meta ? `A meta de guardar ${brl0(c.meta)} foi cumprida.` : `A meta de guardar ${brl0(c.meta)} ${r > 0 ? `ficou ${brl0(c.meta - r)} abaixo` : 'não foi cumprida'}.`;
+    rotulo = `Resultado de ${p.label}: o que entrou menos o que saiu`;
+    line = `Entraram <strong>${brl0(c.recebido)}</strong> e saíram <strong>${brl0(c.gasto)}</strong>.`;
+    note = !c.meta ? '' : real >= c.meta ? `A meta de guardar ${brl0(c.meta)} foi cumprida.` : `A meta de guardar ${brl0(c.meta)} ${real > 0 ? `ficou ${brl0(c.meta - real)} abaixo` : 'não foi cumprida'}.`;
   } else if (c.futuro) {
     rotulo = `Previsão para ${p.label}, com a renda que você informou e guardando ${brl0(c.meta)}`;
     line = `${cap(p.label)} começa nas contas em ${ddmm(p.ini)}${usaJanela() ? ` e nos cartões em ${ddmm(p.cIni)}` : ''}.${c.gasto ? ` Já há <strong>${brl0(c.gasto)}</strong> lançados.` : ''}${c.agendado ? ` Há <strong>${brl0(c.agendado)}</strong> em parcelas marcadas para este mês.` : ''}`;
     note = `As contas fixas previstas somam ${brl0(c.fixas)}, e a receita esperada é ${brl0(c.prev.salAnt + c.prev.vaAnt)}.`;
   } else {
-    rotulo = `Com quanto você termina ${MESES_L[+p.mes.slice(5) - 1]}, no ritmo atual e já guardando ${brl0(c.meta)}`;
-    line = fim >= 0
-      ? `Sobram <strong class="pos">${brl0(fim)}</strong> além da meta. Para não passar do zero, os gastos variáveis podem chegar a <strong>${brl0(limiteDia)} por dia</strong> até ${ddmm(p.fim)}; hoje estão em ${brl0(c.ritmo)}.`
+    rotulo = `Até hoje em ${MESES_L[+p.mes.slice(5) - 1]}: o que entrou menos o que saiu`;
+    const base = [c.salFalta > 1 ? `o salário de ${brl0(c.salFalta)} que ainda vai cair` : '', c.comprometido ? `${brl0(c.comprometido)} em parcelas e contas fixas` : '', 'o ritmo atual dos gastos'].filter(Boolean).join(', ');
+    line = `Entraram <strong>${brl0(c.recebido)}</strong> e saíram <strong>${brl0(c.gasto)}</strong>.<br><span class="muted">Previsão para ${ddmm(p.fim)}, contando ${base} e guardando ${brl0(c.meta)}:</span> ${fim >= 0
+      ? `sobram <strong class="pos">${brl0(fim)}</strong>. Os gastos do dia a dia podem chegar a <strong>${brl0(limiteDia)} por dia</strong>; hoje estão em ${brl0(c.ritmo)}.`
       : c.livre > 0
-        ? `Faltam <strong class="neg">${brl0(-fim)}</strong> para guardar os ${brl0(c.meta)}. Para fechar no zero, os gastos variáveis precisam cair para <strong>${brl0(limiteDia)} por dia</strong> até ${ddmm(p.fim)}; hoje estão em ${brl0(c.ritmo)}.`
-        : `Faltam <strong class="neg">${brl0(-fim)}</strong> para guardar os ${brl0(c.meta)}. Mesmo sem gastar mais nada, o mês já passou ${brl0(-c.livre)} do limite.`;
+        ? `faltam <strong class="neg">${brl0(-fim)}</strong>. Para fechar no zero, os gastos do dia a dia precisam cair para <strong>${brl0(limiteDia)} por dia</strong>; hoje estão em ${brl0(c.ritmo)}.`
+        : `faltam <strong class="neg">${brl0(-fim)}</strong>, mesmo sem gastar mais nada.`}`;
     note = aviso;
   }
-  if (SAL_MESES_EST.includes(p.mes)) { const se = sum(c.rec.filter(isSalEst)); note = (note ? note + ' ' : '') + `O salário não apareceu inteiro nos arquivos deste mês: o painel conta ${brl0(se)} estimados para chegar aos ${brl0(SAL_CHEIO)} que você informou.`; }
+  if (SAL_MESES_EST.includes(p.mes)) note = (note ? note + ' ' : '') + `O salário não apareceu nos arquivos deste mês. Envie o extrato da conta onde ele cai para as entradas ficarem certas.`;
   if (!P.renda && !c.recebido) note = (note ? note + ' ' : '') + 'Você não informou a renda e nenhuma entrada apareceu nos extratos: preencha o salário em “Minhas respostas” para o número ficar certo.';
   const doCartao = sum(c.gastoL.filter(l => l.kind === 'cartao'));
   const proj = c.passado ? 0 : c.projVar;
@@ -1631,30 +1644,30 @@ function renderMes() {
     [fim >= 0 ? 'Sobra' : 'Falta', Math.abs(fim), fim >= 0 ? 'var(--s-livre)' : 'var(--bad)', fim >= 0 ? 'além da meta' : 'para guardar a meta'],
   ];
   const linhaCalc = (k, v, forte) => `<tr${forte ? ' class="tot"' : ''}><td>${k}</td><td class="r">${forte ? sinal(v) : brl(v)}</td></tr>`;
-  const calcHtml = `<details class="calc"><summary>Como esse número é calculado</summary><table>
+  const calcHtml = `<details class="calc"><summary>Como a previsão é calculada</summary><table>
       ${linhaCalc('Entradas previstas (recebido + o que ainda vai cair do salário e do VA)', c.entradas)}
       ${linhaCalc('− Já gasto (líquido dos reembolsos e estornos)', -c.gasto)}
       ${linhaCalc('− Vai cair: parcelas e contas fixas', -c.comprometido)}
       ${c.passado ? '' : linhaCalc(`− Gastos variáveis até o fim, no ritmo atual (${brl0(c.ritmoCartao)}/dia nos cartões, ${brl0(c.ritmoContas)}/dia nas contas)`, -proj)}
       ${linhaCalc('− Meta de guardar', -c.meta)}
-      ${linhaCalc(rotulo.split(',')[0], fim, true)}</table>
+      ${linhaCalc('Previsão para o fim do mês', fim, true)}</table>
       <p class="small muted">Outros dois números, para referência: <b>livre para gastar</b> (sem contar o ritmo) = ${brl(c.livre)}; <b>resultado sem guardar</b> (no ritmo atual) = ${brl(c.passado ? c.entradas - c.gasto : c.saldoFim)}.</p></details>`;
   $('#hero').innerHTML = `<div class="hero-eyebrow">${esc(p.label)}${c.passado ? ' · fechado' : ''} · contas de ${ddmm(p.ini)} a ${ddmm(p.fim)}${usaJanela() ? ' · ' + esc(txtCartoes(p)) : ''}</div>
-    <div class="hero-num"><span class="lbl">${esc(rotulo)}</span><b class="big ${fim >= 0 ? 'pos' : 'neg'}">${sinal(fim)}</b></div>
+    <div class="hero-num"><span class="lbl">${esc(rotulo)}</span><b class="big ${princ >= 0 ? 'pos' : 'neg'}">${sinal(princ)}</b></div>
     <div class="hero-line">${line}</div>
+    ${c.passado ? '' : `<div class="small muted">${c.futuro ? 'Como a renda prevista se divide' : 'Previsão do mês'}</div>`}
     <div class="stack" role="img" aria-label="Divisão das entradas do mês">${segs.map(([k, v, col], i) => v > 0 ? `<div class="${i === 4 && fim < 0 ? 'over' : ''}" style="flex:${v / total} 1 0;background:${i === 4 && fim < 0 ? '' : col}" title="${k}: ${brl(v)}"></div>` : '').join('')}</div>
     <div class="stack-legend">${segs.map(([k, v, col, s]) => `<div><span class="k"><i class="dot" style="background:${col}"></i>${k}</span><b class="num">${brl0(v)}</b><span class="muted">${s}</span></div>`).join('')}</div>
     ${note ? `<div class="hero-note">${note}</div>` : ''}
     ${calcHtml}`;
 
-  const reemb = -sum(c.gastoL.filter(l => l.sub === 'Reembolsos de rateio'));
   $('#tiles').innerHTML = [
-    ['Entradas do mês', brl0(c.entradas), c.aReceber ? `${brl0(c.recebido)} recebido · falta${[c.salFalta > 1 ? ` salário ${brl0(c.salFalta)}` : '', c.vaEst ? ` VA ${brl0(c.vaEst)}` : ''].filter(Boolean).join(' e')}` : `${brl0(c.recebido)} recebido`, 'var(--s-receita)'],
-    ['Já gastei', brl0(c.gasto), `${brl0(c.varAte)} variáveis · ${brl0(c.gasto - c.varAte)} fixos`, 'var(--s-despesa)'],
-    C.rateio === 'abate' ? ['Reembolsos de rateio', brl0(reemb), 'PIX recebidos que abatem o gasto', 'var(--s-livre)'] : ['Contas fixas', brl0(c.gasto - c.varAte), 'já pagas neste mês', 'var(--ink-2)'],
+    tileEntradas(c, c.salFalta > 1 ? `previsão: ainda cai o salário de ${brl0(c.salFalta)}` : ''),
+    ['Saídas', brl0(c.gasto), `${brl0(c.varAte)} do dia a dia · ${brl0(c.gasto - c.varAte)} fixos`, 'var(--s-despesa)'],
+    tileGuardado(p, c),
     c.passado
-      ? ['Resultado do mês', brl0(c.entradas - c.gasto), 'receita − despesa, antes de guardar', c.entradas - c.gasto >= c.meta ? 'var(--good)' : 'var(--bad)']
-      : ['Ritmo dos variáveis', `${brl0(c.ritmo)}/dia`, `limite para fechar no zero: ${brl0(limiteDia)}/dia`, c.ritmo <= limiteDia ? 'var(--good)' : 'var(--bad)'],
+      ? ['Resultado do mês', brl0(real), 'entradas − saídas', real >= c.meta ? 'var(--good)' : 'var(--bad)']
+      : ['Gasto por dia', `${brl0(c.ritmo)}/dia`, `para fechar no zero: até ${brl0(limiteDia)}/dia`, c.ritmo <= limiteDia ? 'var(--good)' : 'var(--bad)'],
   ].map(tile).join('');
   }
 
@@ -1734,11 +1747,24 @@ function heroPeriodo(p, c) {
     <div class="stack-legend">${segs.map(([k, v, col, s]) => `<div><span class="k"><i class="dot" style="background:${col}"></i>${k}</span><b class="num">${brl0(v)}</b><span class="muted">${s}</span></div>`).join('')}</div>
     <div class="hero-note">Cada lançamento conta pela própria data: a compra no cartão, no dia da compra; o PIX e o boleto, no dia em que saíram.${deFora ? ` Ficaram de fora ${deFora}, porque não são gasto nem receita.` : ''} A previsão do salário e a meta de guardar aparecem quando você escolhe um mês inteiro.</div>`;
   $('#tiles').innerHTML = [
-    ['Entradas', brl0(r), `${c.rec.filter(l => l.data <= c.corte).length} lançamentos`, 'var(--s-receita)'],
-    ['Saídas', brl0(g), `${brl0(c.varAte)} variáveis · ${brl0(g - c.varAte)} fixos`, 'var(--s-despesa)'],
-    ['Média por dia', `${brl0(c.diasPass ? g / c.diasPass : 0)}/dia`, `gasto em ${c.diasPass} dia${c.diasPass === 1 ? '' : 's'}`, 'var(--ink-2)'],
+    tileEntradas(c, ''),
+    ['Saídas', brl0(g), `${brl0(c.diasPass ? g / c.diasPass : 0)} por dia · ${brl0(g - c.varAte)} fixos`, 'var(--s-despesa)'],
+    tileGuardado(p, c),
     ['Resultado', brl0(res), 'entradas − saídas', res >= 0 ? 'var(--good)' : 'var(--bad)'],
   ].map(tile).join('');
+}
+function tileEntradas(c, extra) {
+  const rec = c.rec.filter(l => l.data <= c.corte), fora = sum(rec.filter(l => l.sub === 'Receita extraordinária'));
+  return ['Entradas', brl0(c.recebido), [fora ? `inclui ${brl0(fora)} fora do comum` : `${rec.length} lançamento${rec.length === 1 ? '' : 's'}`, extra].filter(Boolean).join(' · '), 'var(--s-receita)'];
+}
+// Guardado = o que foi para investimentos e caixinhas menos o que foi resgatado, no período.
+// Não é gasto: já está dentro do resultado (entradas − saídas). Este número mostra quanto do resultado foi de fato guardado.
+function tileGuardado(p, c) {
+  const inv = noPeriodo(p, l => l.cat === 'Investimentos' && l.data <= c.corte, L_ALL);
+  const g = sum(inv.filter(l => !l.entrada)) - sum(inv.filter(l => l.entrada));
+  const meta = (P.metaPoupanca || 0) * (p.mesInteiro ? 1 : c.diasTot / 30.44);
+  const txt = g < 0 ? 'resgatou mais do que guardou' : 'investimentos e caixinhas';
+  return ['Guardado', brl0(g), meta ? `${txt} · meta ${brl0(meta)}${p.mesInteiro ? '' : ' (proporcional)'}` : `${txt} (aplicado − resgatado)`, g < 0 ? 'var(--bad)' : meta && g >= meta ? 'var(--good)' : 'var(--s-guardar)'];
 }
 
 /* ---- linha do tempo: o intervalo de dias que o painel soma ---- */
@@ -1830,6 +1856,44 @@ function fecharDuvidas() {
   if (dvRespondidas) toast(`Pronto: ${dvRespondidas} resposta${dvRespondidas > 1 ? 's' : ''} salva${dvRespondidas > 1 ? 's' : ''}. Receitas e despesas recalculadas.`);
 }
 $('#dvX').onclick = $('#dvDepois').onclick = fecharDuvidas;
+
+/* ---- classificar com um toque: o que ficou em "A classificar", do maior valor para o menor ---- */
+const PULADOS = new Set();
+let clFeitas = 0;
+const paraClassificar = () => L_ALL.filter(l => l.id && !l.projetado && l.sub === 'A classificar' && isDesp(l) && !PULADOS.has(l.id)).sort((a, b) => b.valor - a.valor);
+function avisoClassificar() {
+  const n = paraClassificar().length; if (!n) return '';
+  const v = sum(paraClassificar());
+  return `<div class="notice"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg>
+  <div style="flex:1"><b>${n} gasto${n === 1 ? '' : 's'} sem categoria (${brl0(v)}).</b> Com um toque em cada um, os gráficos por categoria ficam certos.</div><button class="btn primary" data-classificar="1">Classificar</button></div>`;
+}
+document.addEventListener('click', e => { if (e.target.closest('[data-classificar]')) abrirClassificar(); });
+function abrirClassificar() { PULADOS.clear(); clFeitas = 0; if (!paraClassificar().length) return; $('#cls').hidden = false; mostrarClassificar(); }
+function mostrarClassificar() {
+  const lista = paraClassificar(); if (!lista.length) return fecharClassificar();
+  const l = lista[0], kw = chaveDesc(l.desc);
+  $('#clItem').innerHTML = `<b>${esc(l.desc)}</b><span class="v">${brl(l.valor)}</span><small>${ddmmaa(l.data)} · ${esc(l.conta)}${l.parcela ? ' · parcela ' + l.parcela : ''}</small>`;
+  $('#clBts').innerHTML = CATS.map(c => `<button class="btn" data-cl="${c}">${c}</button>`).join('') + '<button class="btn ign" data-cl="">Não é gasto meu: ignorar</button>';
+  $('#clLembrar').closest('label').hidden = kw.length < 4;
+  $('#clKw').textContent = `Descrições com “${kw.replace(/\*/g, ' ')}”. Dá para apagar em Enviar extratos › Suas regras.`;
+  $('#clCont').textContent = `faltam ${lista.length}`;
+  $('#clBts').querySelectorAll('[data-cl]').forEach(b => b.onclick = () => classificarUm(l, b.dataset.cl, $('#clLembrar').checked && kw.length >= 4 ? kw : ''));
+  $('#clBts button').focus();
+}
+// com "fazer o mesmo", vira regra (vale para esta e para as próximas); sem, vira ajuste só desta linha
+function classificarUm(l, cat, kw) {
+  const fv = FV_CAT[cat] || 'Variável';
+  if (!cat) DB.ajustes[l.id] = { ...(DB.ajustes[l.id] || {}), ignorar: true };
+  else if (kw) DB.regras.push({ id: uid('r'), kw, s: l.entrada ? '+' : '-', cat, sub: cat, fv, criada: HOJE });
+  else DB.ajustes[l.id] = { ...(DB.ajustes[l.id] || {}), cat, sub: cat, fv };
+  clFeitas++; salvarDB(); rebuild(); mostrarClassificar();
+}
+function fecharClassificar() {
+  $('#cls').hidden = true; PULADOS.clear(); atualizarTudo();
+  if (clFeitas) toast(`Pronto: ${clFeitas} resposta${clFeitas > 1 ? 's' : ''}. Faltam ${paraClassificar().length} sem categoria.`);
+}
+$('#clPular').onclick = () => { const l = paraClassificar()[0]; if (l) PULADOS.add(l.id); mostrarClassificar(); };
+$('#clX').onclick = $('#clFim').onclick = fecharClassificar;
 
 // Gastos × entradas. As entradas vêm sempre de L_ALL (o salário cai num banco e o gasto pode sair de outro);
 // os gastos mostram o total e, com filtro, a parte do filtro.
@@ -2087,7 +2151,7 @@ function barsChart(el, rows, series, opts = {}) {
 function renderHist() {
   const ano = S.ano, fech = mesesFechadosLista(ano), n = fech.length;
   $('#histNote').innerHTML = (TEM_DADOS ? '' : vazioHTML() + '<br>') + esc(n
-    ? `Médias de ${ano}: soma de ${mNome(fech[0])} a ${mNome(fech.at(-1))} ÷ ${n} ${n === 1 ? 'mês' : 'meses'}. Contas pelo mês civil${usaJanela() ? '; cartões pela fatura (' + (C.modoCartao === 'vence' ? 'mês do vencimento' : 'mês do fechamento') + ')' : ''}.${C.rateio === 'abate' ? ' PIX recebidos abatem a despesa.' : ''}${C.va > 0 ? ` O VA que não aparece no extrato entra estimado em ${brl0(VA_PADRAO)}.` : ''}${filtrado() ? ` Filtro: ${descFiltro()}.` : ''} ${ano === +MES_ATUAL.slice(0, 4) ? `${cap(MESES_L[+MES_ATUAL.slice(5) - 1])} está em aberto e fica fora das médias.` : ''}`
+    ? `Médias de ${ano}: soma de ${mNome(fech[0])} a ${mNome(fech.at(-1))} ÷ ${n} ${n === 1 ? 'mês' : 'meses'}. Contas pelo mês civil${usaJanela() ? '; cartões pela fatura (' + (C.modoCartao === 'vence' ? 'mês do vencimento' : 'mês do fechamento') + ')' : ''}.${filtrado() ? ` Filtro: ${descFiltro()}.` : ''} ${ano === +MES_ATUAL.slice(0, 4) ? `${cap(MESES_L[+MES_ATUAL.slice(5) - 1])} está em aberto e fica fora das médias.` : ''}`
     : `${ano} ainda não tem mês fechado com dados. As médias aparecem quando o primeiro mês terminar.`);
   const rec = mediaAno(ano, isRec), desp = mediaAno(ano, isDesp), fix = mediaAno(ano, l => isDesp(l) && l.fv === 'Fixo');
   $('#histTiles').innerHTML = [
@@ -2114,8 +2178,7 @@ function renderHist() {
   $('#histCmpSub').textContent = `média mensal de ${ano} (÷ ${n} ${n === 1 ? 'mês' : 'meses'}) · entradas de todos os bancos`;
   const semVA = fech.filter(m => L_ALL.some(l => l.mes === m && isVAEst(l))), semSal = fech.filter(m => SAL_MESES_EST.includes(m));
   renderCmp($('#histCmpBody'), { entradas: doAno, gastos: doAno, gastosFiltro: filtrado() && G.mov !== 'Receita' ? L.filter(l => fs.has(l.mes)) : null, div: Math.max(1, n), quando: 'em média por mês',
-    notaVA: [semSal.length ? `O salário não apareceu inteiro nos arquivos em ${semSal.length} de ${n} meses (${semSal.map(mLabel).join(', ')}); nesses meses o painel completa até ${brl(SAL_CHEIO)}, o salário que você informou.` : '',
-      semVA.length ? `O vale-alimentação não apareceu nos extratos em ${semVA.length} de ${n} meses (${semVA.map(mLabel).join(', ')}); nesses meses o painel conta ${brl(VA_PADRAO)}, o valor que você informou.` : ''].filter(Boolean).join(' ') });
+    notaVA: semSal.length ? `O salário não apareceu nos arquivos em ${semSal.length} de ${n} meses (${semSal.map(mLabel).join(', ')}). Envie o extrato da conta desses meses para a média ficar certa.` : '' });
   barsChart($('#resChart'), rows, [{ k: 'Resultado', n: 'Resultado', c: v => v >= 0 ? 'var(--s-livre)' : 'var(--bad)' }], { h: 180, label: 'Resultado por mês' });
   $('#catAnoNote').textContent = `média mensal de ${ano} (÷ ${n} ${n === 1 ? 'mês' : 'meses'}) × sua meta`;
   const cm = CATS.map(c => ({ c, v: mediaAno(ano, l => isDesp(l) && l.cat === c), m: META[c] || 0 })), mx = Math.max(...cm.map(x => Math.max(x.v, x.m)), 1);
@@ -2487,7 +2550,7 @@ function renderArq() {
   const nCls = L_ALL.filter(l => isDesp(l) && l.sub === 'A classificar').length, nReal = L_ALL.filter(l => l.kind !== 'manual' && !l.projetado).length;
   $('#checks').innerHTML = [
     nReal ? `<div><span class="pill ${nCls / nReal > .1 ? 'warn' : 'good'}">${(100 - nCls / nReal * 100).toFixed(0)}%</span> dos lançamentos já têm categoria. ${nCls ? `${nCls} estão em “A classificar” (lista abaixo).` : ''}</div>` : '',
-    `<div><span class="pill neutral">Regra</span> Cada lançamento conta pela própria data (no cartão, a da compra); escolha os dias na linha do tempo. PIX e TED com o seu nome completo (de você para você) são transferência entre as suas contas: não são gasto nem receita. Nome cortado ou o mesmo valor saindo de um banco e entrando em outro viram pergunta. ${C.rateio === 'abate' ? `PIX recebidos de até ${brl0(limiteRateio())} abatem o gasto; acima disso, são receita.` : 'PIX recebidos contam como receita.'} Entradas maiores que 2× a renda ficam fora da renda (Entrada extraordinária). ${C.todasFaturas ? 'O pagamento da fatura no extrato da conta é ignorado.' : 'O pagamento de fatura sem a fatura detalhada entra como gasto.'}</div>`,
+    `<div><span class="pill neutral">Regra</span> Cada lançamento conta pela própria data (no cartão, a da compra); escolha os dias na linha do tempo. PIX e TED com o seu nome completo (de você para você) são transferência entre as suas contas: não são gasto nem receita. Nome cortado ou o mesmo valor saindo de um banco e entrando em outro viram pergunta. PIX recebidos contam como receita; entradas maiores que 2× a renda aparecem como “Receita extraordinária”. O pagamento da fatura no extrato da conta só fica de fora quando a fatura daquele cartão foi enviada.</div>`,
     C.cartoes.some(c => c.auto) ? `<div><span class="pill warn">Cartão</span> ${C.cartoes.filter(c => c.auto).map(c => esc(c.nome)).join(', ')}: fechamento estimado a partir do arquivo. Confirme em <a href="#" id="goCards">Minhas respostas › Cartões</a>.</div>` : '',
   ].join('');
   const gc = $('#goCards'); if (gc) gc.onclick = e => { e.preventDefault(); abrirWiz(2, true); };
@@ -2562,15 +2625,10 @@ const PASSOS = [
         <label>Vence dia<input type="number" min="1" max="31" data-ci="${i}" data-cf="vence" value="${c.vence || ''}"></label>
         <button class="x" data-cdel="${i}" aria-label="Tirar o cartão ${esc(c.nome)}">${xSvg}</button>
         ${c.auto ? '<span class="auto">Criado a partir do arquivo, com datas estimadas. Confira o fechamento e o vencimento.</span>' : ''}</div>`).join('') || '<p class="help">Nenhum cartão ainda. Se não usa cartão de crédito, pode seguir.</p>'}</div>
-        <div><button class="btn" id="cAdd">+ Adicionar cartão</button></div></div>
-      <div class="q"><span class="ql">Você vai enviar a fatura detalhada de todos os cartões?</span><div class="opts">
-        ${opt('todasFaturas', 'true', C.todasFaturas, 'Sim, de todos', 'O pagamento da fatura no extrato da conta é ignorado, para não contar o gasto duas vezes.')}
-        ${opt('todasFaturas', 'false', C.todasFaturas, 'Não, de algum só vejo o pagamento', 'O pagamento entra como gasto “Fatura de cartão sem detalhe”.')}</div></div>` },
+        <div><button class="btn" id="cAdd">+ Adicionar cartão</button></div>
+        <p class="help">Pagamento de fatura no extrato da conta: se você enviar a fatura daquele cartão, ele não conta duas vezes; se não enviar, ele entra como gasto.</p></div>` },
   { id: 'contas', t: 'Contas e PIX', h: 'Contas, PIX e gastos fora do banco', p: 'Essas respostas evitam contar a mesma coisa duas vezes e completam o que os extratos não mostram.',
     html: () => `<div class="q"><span class="ql">Em quais bancos você tem conta?</span><div class="chipsel">${BANCOS_LISTA.map(b => `<label><input type="checkbox" data-bk="${esc(b)}" ${C.bancos.includes(b) ? 'checked' : ''}>${esc(b)}</label>`).join('')}</div><p class="help">Serve para sugerir o banco de cada arquivo. Mande o extrato de todas: PIX e débitos só aparecem nele.</p></div>
-      <div class="q"><span class="ql">Quando um amigo te manda PIX para dividir uma conta, o que fazer?</span><div class="opts">
-        ${opt('rateio', 'abate', C.rateio, 'Abater do meu gasto', `Você pagou R$ 200 no bar e recebeu R$ 100 de volta: o gasto fica R$ 100. Vale para PIX de até ${brl0(limiteRateio())}; acima disso, conta como receita. Recomendado.`)}
-        ${opt('rateio', 'receita', C.rateio, 'Contar como receita', 'Todo PIX recebido entra como entrada de dinheiro.')}</div></div>
       <div class="q"><span class="ql">Gastos fixos que não aparecem nos extratos</span><p class="help">Ex.: aluguel pago em dinheiro, diarista, mesada. Eles entram em todo mês, marcados como “fora dos extratos”.</p>
         <div class="rows">${C.fixos.map((f, i) => `<div class="rowi fixo">
           <label>Descrição<input type="text" data-xi="${i}" data-xf="nome" value="${esc(f.nome)}" placeholder="Ex.: Diarista"></label>
