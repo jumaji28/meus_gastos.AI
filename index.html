@@ -582,11 +582,21 @@ body{margin:0}
         <div class="hero" id="hero"></div>
         <div class="tiles" id="tiles"></div>
         <div class="grid g-2">
-          <div class="panel" id="catPanel">
-            <div class="panel-head"><h2>Para onde foi o dinheiro</h2><p id="catSub"></p></div>
-            <div id="cats"></div>
+          <div class="grid" style="gap:18px;align-content:start">
+            <div class="panel" id="catPanel">
+              <div class="panel-head"><h2>Para onde foi o dinheiro</h2><p id="catSub"></p></div>
+              <div id="cats"></div>
+            </div>
+            <div class="panel" id="assinPanel" hidden>
+              <div class="panel-head"><h2>Assinaturas</h2><p id="assinSub"></p></div>
+              <div class="list" id="assinList"></div>
+            </div>
           </div>
           <div class="grid" style="gap:18px;align-content:start">
+            <div class="panel" id="saldoPanel" hidden>
+              <div class="panel-head"><h2>Saldo nas contas</h2><p>pelo último extrato de cada conta</p></div>
+              <div class="list" id="saldoList"></div>
+            </div>
             <div class="panel" id="topPanel">
               <div class="panel-head"><h2>Maiores gastos</h2><p id="topSub"></p></div>
               <div class="list" id="topList"></div>
@@ -594,6 +604,10 @@ body{margin:0}
             <div class="panel" id="pendPanel">
               <div class="panel-head"><h2>Ainda vai cair</h2><p id="pendSub">contas fixas e parcelas</p></div>
               <div class="list" id="pending"></div>
+            </div>
+            <div class="panel" id="futPanel" hidden>
+              <div class="panel-head"><h2>Parcelas dos próximos meses</h2><p id="futSub"></p></div>
+              <div id="futList"></div>
             </div>
           </div>
         </div>
@@ -1101,7 +1115,11 @@ function lerOFX(txt, nome) {
     if (data && !isNaN(v) && Math.abs(v) >= .005) rows.push({ data, desc: desc || g('TRNTYPE') || 'Sem descrição', v: cartao ? -v : v });
   });
   if (cartao) acertarParcelas(rows);
-  return { tipo: cartao ? 'cartao' : 'conta', banco: bancoPor(nome) || bancoPor(org) || BANCO_COD[+bid] || '', rows };
+  // saldo da conta no fim do extrato (<LEDGERBAL>)
+  const lb = (txt.match(/<LEDGERBAL>([\s\S]*?)(<\/LEDGERBAL>|<AVAILBAL>|$)/i) || [])[1] || '';
+  const sv = parseFloat(((lb.match(/<BALAMT>([^<\r\n]+)/i) || [])[1] || '').replace(',', '.')), sd = dataISO((lb.match(/<DTASOF>([^<\r\n]+)/i) || [])[1] || '');
+  const saldo = !cartao && !isNaN(sv) && sd ? { data: sd, v: sv } : null;
+  return { tipo: cartao ? 'cartao' : 'conta', banco: bancoPor(nome) || bancoPor(org) || BANCO_COD[+bid] || '', rows, saldo };
 }
 let pdfjsP = null;
 function carregarPdfJs() {
@@ -1145,13 +1163,18 @@ function lerLinhasPDF(linhas, nome) {
   const mv = T.match(/vencimento[^\d]{0,40}(\d{2})\/(\d{2})\/(\d{4})/);
   const ref = mv ? okData(+mv[3], +mv[2], +mv[1]) : (todas.at(-1) || HOJE);
   const comAno = (d, m, y) => { if (y) return okData(+y < 100 ? 2000 + +y : +y, m, d); let a = +ref.slice(0, 4); let iso = okData(a, m, d); if (iso && iso > addDays(ref, 40)) iso = okData(a - 1, m, d); return iso; };
-  const rows = []; let data = null, secao = 0, comSinal = false;
+  const rows = [], saldos = []; let data = null, secao = 0, comSinal = false;
   linhas.forEach(l => {
     let resto = l, temData = false;
     let m = l.match(RX_D1);
     if (m) { const d = comAno(+m[1], +m[2], m[3]); if (d) { data = d; resto = m[4]; temData = true; } }
     else if ((m = l.match(RX_D2))) { const d = comAno(+m[1], MES3[nk(m[2]).slice(0, 3)], m[3]); if (d) { data = d; resto = m[4]; temData = true; } }
     const rn = nk(resto);
+    // saldo da conta: "18/10/2026 SALDO DO DIA 3.872,53" (Itaú) ou "Saldo final do período 162,78" (conta Nubank)
+    if (!cartao && /saldo do dia|saldo final/.test(rn)) {
+      const s = resto.match(RX_VFIM), v = s ? valorBR(s[1]) : NaN;
+      if (!isNaN(v)) saldos.push({ data: temData ? data : '', v: /D|-/.test((s[2] || '').trim()) ? -Math.abs(v) : v });
+    }
     if (/total de entradas/.test(rn)) { secao = 1; return; }
     if (/total de saidas/.test(rn)) { secao = -1; return; }
     if (!data || (!temData && !secao)) return;
@@ -1188,7 +1211,10 @@ function lerLinhasPDF(linhas, nome) {
   const banco = bancoPor(nome) || (/nubank|nu pagamentos|nu financeira/.test(T) ? 'Nubank' : bancoPor(T.slice(0, 600)));
   // dia de fechamento, quando a fatura informa ("Data de corte: 23/09/2026", "Fechamento 25/10")
   const mf = T.match(/(data de corte|data do corte|fechamento|melhor dia de compra)[^\d]{0,30}(\d{2})\/(\d{2})/);
-  return { tipo: cartao ? 'cartao' : 'conta', banco, rows, venc: cartao ? (mv ? ref : '') : '', fecha: cartao && mf ? +mf[2] : 0, aviso };
+  // o saldo mais recente do arquivo; o saldo final sem data vale no último dia com lançamento
+  const ultimo = rows.reduce((d, x) => x.data > d ? x.data : d, '');
+  const saldo = saldos.map(s => ({ ...s, data: s.data || ultimo })).filter(s => s.data).sort((a, b) => a.data.localeCompare(b.data)).at(-1) || null;
+  return { tipo: cartao ? 'cartao' : 'conta', banco, rows, venc: cartao ? (mv ? ref : '') : '', fecha: cartao && mf ? +mf[2] : 0, aviso, saldo };
 }
 
 /* ===================================================================== montagem dos lançamentos */
@@ -1605,7 +1631,7 @@ function renderMes() {
 
   $('#tiles').innerHTML = [
     tileEntradas(c, c.salFalta > 1 ? `previsão: ainda cai o salário de ${brl0(c.salFalta)}` : ''),
-    ['Saídas', brl0(c.gasto), `${brl0(c.varAte)} do dia a dia · ${brl0(c.gasto - c.varAte)} fixos`, 'var(--s-despesa)'],
+    ['Saídas', brl0(c.gasto), comparaAnterior(p, c) || `${brl0(c.varAte)} do dia a dia · ${brl0(c.gasto - c.varAte)} fixos`, 'var(--s-despesa)'],
     tileGuardado(p, c),
     c.passado
       ? ['Resultado do mês', brl0(real), 'entradas − saídas', real >= c.meta ? 'var(--good)' : 'var(--bad)']
@@ -1644,6 +1670,7 @@ function renderMes() {
 
   const top = [...c.desp].sort((a, b) => b.valor - a.valor).slice(0, 8);
   $('#topSub').textContent = `${c.desp.length} gastos de ${p.faixa} · toque num gasto para editar`;
+  pintarExtras();
   $('#topList').innerHTML = top.map(l => `<div class="li"${l.id && !l.projetado ? ` data-edit="${l.id}" title="Clique para editar"` : ''}><span class="d">${ddmm(l.data)}</span><span class="t">${esc(l.desc)}<small>${esc(l.cat)} · ${esc(l.conta)}${l.sub === 'A classificar' ? ' · <span class="pill warn">sem categoria</span>' : ''}${l.editado ? ' · <span class="ed">✎ editado</span>' : ''}</small></span><span class="v">${brl(l.valor)}</span></div>`).join('') || '<p class="muted small">Sem gastos.</p>';
 }
 
@@ -1669,7 +1696,7 @@ function heroPeriodo(p, c) {
     <div class="hero-note">Cada lançamento conta pela própria data: a compra no cartão, no dia da compra; o PIX e o boleto, no dia em que saíram.${deFora ? ` Ficaram de fora ${deFora}, porque não são gasto nem receita.` : ''} A previsão do salário e a meta de guardar aparecem quando você escolhe um mês inteiro.</div>`;
   $('#tiles').innerHTML = [
     tileEntradas(c, ''),
-    ['Saídas', brl0(g), `${brl0(c.diasPass ? g / c.diasPass : 0)} por dia · ${brl0(g - c.varAte)} fixos`, 'var(--s-despesa)'],
+    ['Saídas', brl0(g), [comparaAnterior(p, c), `${brl0(c.diasPass ? g / c.diasPass : 0)} por dia`].filter(Boolean).join(' · '), 'var(--s-despesa)'],
     tileGuardado(p, c),
     ['Resultado', brl0(res), 'entradas − saídas', res >= 0 ? 'var(--good)' : 'var(--bad)'],
   ].map(tile).join('');
@@ -1686,6 +1713,63 @@ function tileGuardado(p, c) {
   const meta = (P.metaPoupanca || 0) * (p.mesInteiro ? 1 : c.diasTot / 30.44);
   const txt = g < 0 ? 'resgatou mais do que guardou' : 'investimentos e caixinhas';
   return ['Guardado', brl0(g), meta ? `${txt} · meta ${brl0(meta)}${p.mesInteiro ? '' : ' (proporcional)'}` : `${txt} (aplicado − resgatado)`, g < 0 ? 'var(--bad)' : meta && g >= meta ? 'var(--good)' : 'var(--s-guardar)'];
+}
+
+/* ---- fase 3: saldo nas contas, assinaturas, parcelas futuras e comparação com o período anterior ---- */
+const mesesFechadosRecentes = (n = 3) => MES_LIST.filter(m => m < MES_ATUAL && L_ALL.some(l => l.mes === m && l.kind !== 'manual')).slice(-n);
+// renda de referência: o salário informado ou, sem ele, a média das entradas dos últimos 3 meses fechados (sem o fora do comum)
+function rendaRef() {
+  if (+C.salario) return +C.salario;
+  const ms = mesesFechadosRecentes();
+  return ms.length ? sum(L_ALL.filter(l => ms.includes(l.mes) && isRec(l) && l.sub !== 'Receita extraordinária')) / ms.length : 0;
+}
+// saldo mais recente de cada conta, lido do próprio extrato (PDF: "saldo do dia" ou "saldo final"; OFX: LEDGERBAL)
+function saldosContas() {
+  const por = {};
+  DB.arquivos.filter(a => a.saldo && a.saldo.data).forEach(a => { const k = a.banco || 'Conta'; if (!por[k] || a.saldo.data > por[k].data) por[k] = { banco: k, ...a.saldo }; });
+  return Object.values(por).sort((a, b) => b.v - a.v);
+}
+// assinaturas: gastos da categoria Assinaturas que se repetiram em pelo menos 2 dos últimos 3 meses fechados
+function assinaturas() {
+  const ms = mesesFechadosRecentes(), g = {};
+  L_ALL.filter(l => isDesp(l) && l.cat === 'Assinaturas' && ms.includes(l.mes)).forEach(l => {
+    const k = nk(parcelaBase(l.desc)).replace(/[^a-z ]/g, '').trim().slice(0, 24) || l.sub;
+    const x = (g[k] ||= { nome: parcelaBase(l.desc), meses: new Set(), v: 0, ultimo: '' });
+    x.meses.add(l.mes); x.v += l.valor; if (l.data > x.ultimo) x.ultimo = l.data;
+  });
+  return Object.values(g).filter(x => x.meses.size >= Math.min(2, ms.length)).map(x => ({ ...x, mes: x.v / x.meses.size })).sort((a, b) => b.mes - a.mes);
+}
+// parcelas do cartão que já vão cair nos próximos 3 meses (as que vieram na fatura e as previstas a partir de k/n)
+function parcelasFuturas() {
+  const r = rendaRef(), meses = []; let m = MES_ATUAL;
+  for (let i = 0; i < 3; i++) { m = nextMes(m); const ls = L_ALL.filter(l => l.mes === m && l.kind === 'cartao' && l.parcela && isDesp(l)); meses.push({ m, v: sum(ls), n: ls.length, pct: r ? sum(ls) / r : 0 }); }
+  return { r, meses };
+}
+// saídas comparadas com o período anterior do mesmo tamanho: no mês, os mesmos dias do mês passado; no intervalo livre, os dias logo antes
+function comparaAnterior(p, c) {
+  const n = c.passado ? c.diasTot : c.diasPass; if (!n || c.futuro) return '';
+  const ini = p.mesInteiro ? moverMes(p.ini, -1) : addDays(p.ini, -c.diasTot);
+  const fim = p.mesInteiro ? [addDays(ini, n - 1), fimDoMes(ini.slice(0, 7))].sort()[0] : addDays(ini, n - 1);
+  if (ini < `${PRIMEIRO_MES}-01`) return '';
+  const g = sum(L_ALL.filter(l => isDesp(l) && !l.estimado && l.data >= ini && l.data <= fim));
+  if (g < 1) return '';
+  const d = c.gasto / g - 1, quando = p.mesInteiro ? `${c.passado ? '' : 'mesmos dias de '}${MESES_L[+ini.slice(5, 7) - 1]}` : `${n} dias anteriores`;
+  return Math.abs(d) < .03 ? `igual a ${quando}` : `${d > 0 ? '▲' : '▼'} ${Math.round(Math.abs(d) * 100)}% vs ${quando}`;
+}
+const liValor = (t, s, v, cls = '') => `<div class="li" style="grid-template-columns:minmax(0,1fr) auto"><span class="t">${t}${s ? `<small>${s}</small>` : ''}</span><span class="v ${cls}">${v}</span></div>`;
+function pintarExtras() {
+  const sl = saldosContas();
+  $('#saldoPanel').hidden = !sl.length;
+  $('#saldoList').innerHTML = sl.map(s => liValor(esc(s.banco), `em ${ddmmaa(s.data)}${diffDays(s.data, HOJE) > 7 ? ' · envie o extrato novo para atualizar' : ''}`, brl(s.v), s.v < 0 ? 'neg' : '')).join('')
+    + (sl.length > 1 ? liValor('<b>Total</b>', '', `<b>${brl(sum(sl, s => s.v))}</b>`) : '');
+  const as = assinaturas(), tot = sum(as, x => x.mes), r = rendaRef();
+  $('#assinPanel').hidden = !as.length;
+  $('#assinSub').textContent = `${brl0(tot)} por mês · ${brl0(tot * 12)} por ano${r ? ` · ${Math.round(tot / r * 100)}% da renda` : ''} · bom lugar para cortar`;
+  $('#assinList').innerHTML = as.slice(0, 10).map(x => liValor(esc(x.nome.slice(0, 40)), `última cobrança ${ddmm(x.ultimo)} · ${brl0(x.mes * 12)} por ano`, brl(x.mes))).join('');
+  const f = parcelasFuturas(), mx = Math.max(...f.meses.map(x => x.v), 1);
+  $('#futPanel').hidden = !f.meses.some(x => x.v > 0);
+  $('#futSub').textContent = f.r ? `quanto da renda (${brl0(f.r)}) já está comprometido com compras parceladas` : 'compras parceladas que ainda vão cair';
+  $('#futList').innerHTML = f.meses.map(x => `<div class="cat-row" style="grid-template-columns:minmax(70px,110px) minmax(0,1fr) 130px"><span class="cat-name">${cap(MESES_L[+x.m.slice(5) - 1])}</span><div class="bar"><i style="width:${x.v / mx * 100}%;background:var(--s-despesa-2)"></i></div><span class="cat-val">${brl0(x.v)}<small>${f.r ? Math.round(x.pct * 100) + '% da renda · ' : ''}${x.n} parcela${x.n === 1 ? '' : 's'}</small></span></div>`).join('');
 }
 
 /* ---- linha do tempo: o intervalo de dias que o painel soma ---- */
@@ -2226,7 +2310,7 @@ function incorporar(it) {
     sobra.set(k, sobra.get(k) - 1);
     DB.lanc.push({ id: DB.prox++, ...l, arq, arqNome: it.nome }); novas++;
   });
-  DB.arquivos.push({ id: arq, nome: it.nome, tipo: kind, banco, cartao: kind === 'cartao' ? it.cartao : '', linhas: linhas.length, novas, de: it.de, ate: it.ate, em: HOJE, hash: it.hash });
+  DB.arquivos.push({ id: arq, nome: it.nome, tipo: kind, banco, cartao: kind === 'cartao' ? it.cartao : '', linhas: linhas.length, novas, de: it.de, ate: it.ate, em: HOJE, hash: it.hash, saldo: kind === 'conta' ? it.saldo || null : null });
   return { novas, dup };
 }
 function adicionarFila() {
