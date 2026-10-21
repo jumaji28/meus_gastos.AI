@@ -414,6 +414,33 @@ body{margin:0}
 .bk{display:flex;flex-wrap:wrap;gap:8px}
 @media (max-width:900px){.land{grid-template-columns:minmax(0,1fr);gap:28px;padding-top:28px}}
 @media (max-width:640px){.land-steps{grid-template-columns:minmax(0,1fr)}.rowi.card,.rowi.fixo{grid-template-columns:repeat(2,minmax(0,1fr))}.rowi .x{justify-self:end}.qcard{padding:18px}.metas label{grid-template-columns:minmax(0,1fr) 116px}.onb-top .sp{display:none}}
+/* ---------- celular: cabeçalho abaixo da barra de status (hora, bateria) e abas numa barra fixa embaixo, como app.
+   env(safe-area-inset-*) é a área que o iPhone reserva para a hora em cima e para a barrinha de gestos embaixo. */
+.onb-top{padding-top:max(12px,env(safe-area-inset-top,0px))}
+.modal-bg{padding-top:max(16px,env(safe-area-inset-top,0px));padding-bottom:max(16px,env(safe-area-inset-bottom,0px))}
+@media (max-width:760px){
+  .side{flex-wrap:nowrap;overflow:visible;gap:6px;padding:max(8px,env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) 8px max(12px,env(safe-area-inset-left,0px))}
+  .side .brand{flex:1 1 auto;min-width:0}
+  .side .brand b{overflow:hidden;text-overflow:ellipsis}
+  .brand-mark{width:30px;height:30px;font-size:12px}
+  /* abas principais: barra fixa embaixo, ícone em cima e nome embaixo */
+  #nav{position:fixed;left:0;right:0;bottom:0;z-index:25;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;background:var(--side);
+    padding:6px max(6px,env(safe-area-inset-right,0px)) max(6px,env(safe-area-inset-bottom,0px)) max(6px,env(safe-area-inset-left,0px));box-shadow:0 -4px 16px rgba(0,0,0,.18)}
+  #nav button{flex-direction:column;gap:3px;padding:6px 2px;font-size:10.5px;line-height:1.15;text-align:center;white-space:normal;justify-content:center;border-radius:10px}
+  #nav button svg{width:20px;height:20px}
+  /* apoio (enviar, respostas, tour, instalar, chat): só ícones, no cabeçalho */
+  .side .nav:not(#nav){gap:2px;flex-wrap:nowrap}
+  .side .nav:not(#nav) button{font-size:0;padding:8px;border-radius:50%}
+  .side .nav:not(#nav) button svg{width:20px;height:20px;opacity:1}
+  .side .nav:not(#nav) button[aria-selected="true"]{background:var(--side-2)}
+  .main{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+  .fab{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+  .chat{bottom:calc(84px + env(safe-area-inset-bottom,0px));height:min(560px,calc(100vh - 170px))}
+  .toast{bottom:calc(88px + env(safe-area-inset-bottom,0px))}
+  .topbar{gap:10px}
+  .topbar .crumb{flex:1 1 140px}
+  #quickUp{padding:7px 11px}
+}
 </style>
 </head>
 <body>
