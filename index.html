@@ -547,6 +547,7 @@ body{margin:0}
         <button id="instBtn" hidden><svg viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M12 7v7M9 11l3 3 3-3M10 18h4"/></svg>Instalar app</button>
         <button id="tourBtn"><svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2zM8 7h6M8 11h6"/></svg>Tour desta aba</button>
         <button id="chatBtnSide"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12z"/></svg>Pergunte aos dados</button>
+        <button id="limparBtn" aria-label="Limpar app"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>Limpar app</button>
       </nav>
     </div>
     <div class="side-foot" id="sideFoot"></div>
@@ -752,6 +753,12 @@ body{margin:0}
   <div class="cl-bts" id="clBts"></div>
   <label class="chk"><input type="checkbox" id="clLembrar" checked><span>Fazer o mesmo com as próximas parecidas<small id="clKw"></small></span></label>
   <footer><span class="small muted esq" id="clCont"></span><button class="btn" id="clPular">Pular</button><button class="btn" id="clFim">Terminar depois</button></footer>
+</div></div>
+<div class="modal-bg" id="limpar" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="lmH" style="width:min(480px,100%)">
+  <button class="xm" id="lmX" aria-label="Fechar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  <header><h2 id="lmH">Limpar o app e começar do zero?</h2><p>Apaga deste aparelho os lançamentos, as respostas e as regras. O app volta para a primeira tela, como novo. Isso não tem volta.</p></header>
+  <p class="small muted" id="lmInfo" style="margin:0"></p>
+  <footer><button class="btn esq" id="lmBackup"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg>Baixar backup antes</button><button class="btn" id="lmCancel">Cancelar</button><button class="btn" id="lmOk" style="background:var(--bad);border-color:var(--bad);color:#fff">Limpar tudo</button></footer>
 </div></div>
 <div class="modal-bg" id="inst" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="instH">
   <button class="xm" id="instX" aria-label="Fechar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
@@ -2380,11 +2387,23 @@ async function restaurar(f) {
     DB = normalizarDB(d); DB.prontos = true; salvarDB(); atualizarTudo(); toast('Backup restaurado');
   } catch { toast('Esse arquivo não é um backup do Meus Gastos.AI.'); }
 }
-$('#bkWipe').onclick = () => {
-  if (!confirm('Apagar todos os lançamentos, respostas e regras deste navegador? Isso não tem volta. Baixe um backup antes, se quiser guardar.')) return;
+// "Limpar app" (menu) e "Apagar tudo e recomeçar" (Seus dados): confirmação com a opção de baixar o backup antes
+function abrirLimpar() {
+  const n = DB.lanc.length;
+  $('#lmInfo').textContent = n ? `Hoje o app tem ${n.toLocaleString('pt-BR')} lançamentos de ${DB.arquivos.length} arquivo${DB.arquivos.length === 1 ? '' : 's'}. O backup guarda tudo isso num arquivo, para restaurar depois se quiser.` : 'Ainda não há lançamentos: só as respostas serão apagadas.';
+  $('#lmBackup').hidden = !n;
+  $('#limpar').hidden = false; $('#lmCancel').focus();
+}
+function limparApp() {
   try { localStorage.removeItem(DB_KEY); Object.keys(localStorage).filter(k => k.startsWith('mg_')).forEach(k => localStorage.removeItem(k)); } catch { }
-  DB = normalizarDB({}); FILA = []; rebuild(); mostrarOnb();
-};
+  DB = normalizarDB({}); FILA = []; SEL.clear(); S.ini = S.fim = ''; S.mes = MES_ATUAL; S.tab = 'mes';
+  $('#limpar').hidden = true; $('#chat').hidden = true;
+  rebuild(); mostrarOnb(); toast('App limpo. Pode começar do zero.');
+}
+$('#bkWipe').onclick = $('#limparBtn').onclick = abrirLimpar;
+$('#lmOk').onclick = limparApp;
+$('#lmX').onclick = $('#lmCancel').onclick = () => $('#limpar').hidden = true;
+$('#lmBackup').onclick = () => $('#bkSave').click();
 
 /* ============================================================ primeira visita: perguntas */
 const W = { i: 0, editando: false, max: 0 };
