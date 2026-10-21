@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Meus Gastos.AI</title>
 <meta name="description" content="Painel financeiro pessoal montado a partir dos extratos e faturas do seu banco.">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#103A31">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Meus Gastos">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Public+Sans:wght@400;500;600;700&display=swap">
@@ -428,6 +436,7 @@ body{margin:0}
       </div>
       <div class="land-cta">
         <button class="btn primary big" id="startBtn">Começar</button>
+        <button class="btn big" id="instBtnLand" hidden>Instalar como app</button>
         <span class="small muted" id="landFila"></span>
       </div>
       <div class="priv"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>
@@ -475,6 +484,7 @@ body{margin:0}
       <nav class="nav">
         <button data-tab="arq" role="tab"><svg viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>Enviar extratos</button>
         <button id="cfgBtn"><svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Minhas respostas</button>
+        <button id="instBtn" hidden><svg viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M12 7v7M9 11l3 3 3-3M10 18h4"/></svg>Instalar app</button>
         <button id="tourBtn"><svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2zM8 7h6M8 11h6"/></svg>Tour desta aba</button>
         <button id="chatBtnSide"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12z"/></svg>Pergunte aos dados</button>
       </nav>
@@ -486,6 +496,7 @@ body{margin:0}
     <div class="wrap">
       <div class="topbar">
         <div class="crumb">Meus Gastos.AI › <b id="crumbTab">Mês atual</b></div>
+        <button class="btn primary" id="quickUp" title="Escolher a fatura ou o extrato e adicionar direto"><svg viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>Enviar arquivo</button>
         <div class="controls" id="periodCtl">
           <div class="month">
             <button id="prevM" aria-label="Mês anterior"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l-6 6 6 6"/></svg></button>
@@ -648,6 +659,11 @@ body{margin:0}
               <button class="btn" id="bkLoad"><svg viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>Restaurar backup</button>
               <button class="btn" id="bkWipe" style="color:var(--bad)"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>Apagar tudo e recomeçar</button>
             </div>
+            <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)" id="lembretes">
+              <h3 style="font-size:15px;margin-bottom:4px">Lembrete para enviar as faturas</h3>
+              <p class="small" style="margin:0 0 10px;color:var(--ink-2)">Cria no calendário do celular um aviso todo mês, no dia em que cada cartão fecha, com o link do painel. Tocou no aviso, é só enviar a fatura.</p>
+              <div class="bk" id="lembBtns"></div>
+            </div>
           </div>
         </div>
         <div class="panel">
@@ -700,6 +716,17 @@ body{margin:0}
   </div>
   <div class="ex" id="edPrev"></div>
   <footer><button class="btn esq" id="edReset">Restaurar original</button><button class="btn" id="edCancel">Cancelar</button><button class="btn primary" id="edOk">Atualizar painel</button></footer>
+</div></div>
+<div class="modal-bg" id="inst" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="instH">
+  <button class="xm" id="instX" aria-label="Fechar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  <header><h2 id="instH">Instalar no iPhone</h2><p>Leva 10 segundos. O Meus Gastos ganha um ícone e abre em tela cheia, como um app.</p></header>
+  <ol class="steps">
+    <li><div><b>Abra este endereço no Safari</b><p>Em outros navegadores do iPhone a opção pode não aparecer.</p></div></li>
+    <li><div><b>Toque em Compartilhar</b> <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 11v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8"/></svg><p>O quadrado com a seta para cima, na barra de baixo (ou de cima, no iPad).</p></div></li>
+    <li><div><b>Escolha “Adicionar à Tela de Início”</b><p>Role a lista se precisar. Confirme o nome e toque em Adicionar.</p></div></li>
+    <li><div><b>Abra pelo ícone novo</b><p>O app guarda os dados separado do Safari. Se você já tem lançamentos aqui no Safari, baixe o backup antes (Enviar extratos › Baixar backup) e restaure no app.</p></div></li>
+  </ol>
+  <footer><button class="btn primary" id="instOk">Entendi</button></footer>
 </div></div>
 <div id="tour" hidden><div class="tour-hole" id="tourHole"></div><div class="tour-card" id="tourCard" role="dialog" aria-live="polite"></div></div>
 
@@ -1397,6 +1424,19 @@ function fillMonths() {
 const tile = ([l, v, s, col]) => `<div class="tile"><span class="lbl"><i class="dot" style="background:${col}"></i>${l}</span><span class="val num">${v}</span><span class="sub">${esc(s)}</span></div>`;
 const vazioHTML = (t = 'Ainda não há extratos no painel') => `<div class="empty"><h2>${t}</h2><p>Jogue as faturas do cartão e os extratos da conta na aba “Enviar extratos”. Assim que eles entrarem, este painel se preenche sozinho.</p><button class="btn primary" data-ir="arq">Enviar meus arquivos</button></div>`;
 
+// Fatura que já fechou e ainda não chegou ao painel: aviso com o botão de enviar (vale para todos os cartões)
+function avisoFaturas() {
+  const itens = C.cartoes.map(c => {
+    let m = prevMes(prevMes(MES_ATUAL)), fim = '';
+    for (let i = 0; i < 4; i++, m = nextMes(m)) { const f = janela(c, m).fim; if (f < HOJE && f > fim) fim = f; }
+    const tem = COBERTURA['Cartão ' + c.nome] || '';
+    return fim && diffDays(fim, HOJE) <= 25 && tem < addDays(fim, -4) ? `cartão ${esc(c.nome)} (fechou em ${ddmm(fim)})` : '';
+  }).filter(Boolean);
+  if (!itens.length) return '';
+  return `<div class="notice" style="background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 35%,transparent)"><svg viewBox="0 0 24 24" style="stroke:var(--accent)"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+  <div style="flex:1"><b>Fatura nova para enviar:</b> ${itens.join(' · ')}. Baixe a fatura no app do banco e envie aqui.</div><button class="btn primary" data-enviar="1">Enviar agora</button></div>`;
+}
+document.addEventListener('click', e => { if (e.target.closest('[data-enviar]')) $('#fileIn').click(); });
 function staleNotice(c) {
   const contas = Object.keys(COBERTURA).filter(k => diffDays(COBERTURA[k], HOJE) < 60);
   const velhas = contas.filter(k => diffDays(COBERTURA[k], HOJE) > 5);
@@ -1408,7 +1448,7 @@ function staleNotice(c) {
 
 function renderMes() {
   const p = periodo(S.mes), c = calc(p);
-  $('#stale').innerHTML = TEM_DADOS ? staleNotice(c) : vazioHTML();
+  $('#stale').innerHTML = TEM_DADOS ? (c.passado || c.futuro ? '' : avisoFaturas()) + staleNotice(c) : vazioHTML();
   const proxNome = MESES_L[+mesSeguinte(p.mes).slice(5) - 1];
   const aviso = !usaJanela() ? '' : p.cartoes.map(cw => c.corte > cw.fim
     ? `A fatura do cartão ${esc(cw.nome)} deste mês fechou em ${ddmm(cw.fim)}: compras nele a partir de ${ddmm(addDays(cw.fim, 1))} já contam em ${proxNome}.`
@@ -1909,7 +1949,7 @@ const linhasResumo = () => { const cols = RES_COLS(); return [cols, ...RESUMO.fi
 const linhasLanc = rows => [LAN_COLS.map(c => c[1]), ...rows.map(l => LAN_COLS.map(([k]) => k === 'data' ? `${ddmm(l.data)}/${l.data.slice(0, 4)}` : k === 'tipo' ? rot(l[k]) : l[k]))];
 let downloads = null;
 // No link do claude.ai, o download passa pela permissão do Claude. No arquivo aberto do computador, o navegador baixa direto.
-const TIPO_ARQ = { csv: 'text/csv;charset=utf-8', json: 'application/json', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
+const TIPO_ARQ = { csv: 'text/csv;charset=utf-8', json: 'application/json', ics: 'text/calendar;charset=utf-8', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
 function baixarDireto(filename, data) {
   const blob = data instanceof Blob ? data : new Blob([data], { type: TIPO_ARQ[filename.split('.').pop()] || 'application/octet-stream' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename;
@@ -1974,6 +2014,7 @@ const HOWTO = [
   ['Nubank: conta', 'No app, vá em Conta › Extrato (ou “Pedir extrato”), escolha o período e o formato CSV ou PDF.'],
   ['Itaú', 'No app ou no site, abra o extrato da conta, escolha o período e salve em PDF. No site também dá para exportar em OFX ou Excel. A fatura do cartão em PDF costuma ter senha: o painel pede aqui.'],
   ['Inter, C6, Bradesco, Santander, BB, Caixa e outros', 'Procure “Exportar extrato” ou “Salvar extrato”. O melhor formato é OFX ou CSV; Excel e PDF também servem. Faça o mesmo com a fatura de cada cartão.'],
+  ['No celular', '<ol><li><b>Android, com o app instalado:</b> abra a fatura no app do banco, toque em <b>Compartilhar</b> e escolha <b>Meus Gastos</b>. Ela entra sozinha.</li><li><b>iPhone:</b> na fatura, toque em <b>Compartilhar › Salvar em Arquivos</b>. Depois, aqui, toque em <b>Enviar arquivo</b> e escolha o arquivo em <b>Recentes</b>.</li><li>Fatura de banco conhecido entra direto, com a opção de desfazer. O que tiver dúvida fica nesta aba para conferir.</li></ol>'],
   ['Dicas', '<ol><li>Mande um arquivo por mês ou um período longo, como preferir. Arquivos que se sobrepõem não duplicam lançamentos.</li><li>Mande a fatura de todos os cartões: o pagamento da fatura no extrato da conta é ignorado para não contar o gasto duas vezes.</li><li>Depois, na aba “Enviar extratos”, classifique o que ficou em “A classificar”. A regra vale para os meses seguintes.</li></ol>'],
 ];
 document.querySelectorAll('[data-howto]').forEach(el => el.innerHTML = HOWTO.map(([t, p], i) => `<details${i === 0 ? ' open' : ''}><summary>${t}</summary>${p.startsWith('<ol') ? p : `<p>${p}</p>`}</details>`).join(''));
@@ -2002,8 +2043,35 @@ async function receberArquivos(files) {
   if (!lista.length) return;
   for (const f of lista) FILA.push({ id: uid('f'), nome: f.name, file: f, status: 'lendo' });
   pintarFilas();
-  for (const it of FILA.filter(x => x.status === 'lendo')) { await processar(it); pintarFilas(); }
-  if (!$('#app').hidden && S.tab !== 'arq') setTab('arq');
+  const novos = FILA.filter(x => x.status === 'lendo');
+  for (const it of novos) { await processar(it); pintarFilas(); }
+  if ($('#app').hidden) return;
+  // envio expresso: com o painel pronto, arquivo lido sem dúvida (banco e cartão conhecidos, sem aviso) entra direto,
+  // com a opção de desfazer. O que tiver dúvida fica na aba Enviar extratos para conferir.
+  const limpos = novos.filter(it => it.status === 'ok' && it.banco && !it.aviso && (it.tipo !== 'cartao' || (it.cartao && !(C.cartoes.find(c => c.id === it.cartao) || {}).auto)));
+  const pendentes = novos.filter(it => it.status !== 'dup' && !limpos.includes(it));
+  if (limpos.length) {
+    const antes = new Set(DB.arquivos.map(a => a.id));
+    const resto = FILA.filter(it => !limpos.includes(it)); FILA = limpos;
+    const r = adicionarFila(); FILA = [...resto, ...FILA];
+    if (r) {
+      const ids = DB.arquivos.filter(a => !antes.has(a.id)).map(a => a.id);
+      atualizarTudo();
+      toastAcao(`${r.novas} lançamento${r.novas === 1 ? '' : 's'} novo${r.novas === 1 ? '' : 's'} de ${limpos.map(it => it.nome).join(', ')}${r.dup ? ` · ${r.dup} já estava${r.dup === 1 ? '' : 'm'} no painel` : ''}`, 'Desfazer', () => {
+        DB.lanc = DB.lanc.filter(l => !ids.includes(l.arq)); DB.arquivos = DB.arquivos.filter(a => !ids.includes(a.id)); salvarDB(); atualizarTudo(); toast('Envio desfeito');
+      });
+    }
+  }
+  if (pendentes.length) { setTab('arq'); toast(`${pendentes.length} arquivo${pendentes.length > 1 ? 's' : ''} para conferir antes de entrar`); }
+  else if (!limpos.length && novos.some(it => it.status === 'dup')) toast('Esse arquivo já está no painel.');
+  pintarFilas();
+}
+/** Aviso com um botão (ex.: Desfazer). Fica 8 segundos na tela. */
+function toastAcao(msg, rotulo, fn) {
+  let t = $('.toast'); if (!t) { t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+  t.innerHTML = `${esc(msg)} <button class="btn" style="margin-left:10px;padding:3px 10px;font-size:12.5px">${esc(rotulo)}</button>`;
+  t.hidden = false; t.querySelector('button').onclick = () => { t.hidden = true; fn(); };
+  clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 8000);
 }
 async function processar(it, senha) {
   try {
@@ -2170,6 +2238,7 @@ function renderArq() {
   $('#regrasList').innerHTML = DB.regras.slice().reverse().map(r => `<div class="li" style="grid-template-columns:minmax(0,1fr) auto auto"><span class="t"><span class="code">${esc(r.kw)}</span> → ${esc(r.cat)} › ${esc(r.sub)}<small>${esc(r.fv || 'Variável')}${r.criada ? ' · criada em ' + ddmmaa(r.criada) : ''}</small></span><span class="v small muted">${L_ALL.filter(l => (l.obs || '').includes('sua regra: ' + r.kw)).length} lanç.</span><button class="x" data-tirregra="${r.id}" aria-label="Apagar regra ${esc(r.kw)}">${xSvg}</button></div>`).join('') || '<p class="muted small" style="margin:0">Você ainda não criou regras. Use “Salvar regra” na lista acima.</p>';
   if (DB.divisoes.length) $('#regrasList').insertAdjacentHTML('afterbegin', DB.divisoes.slice().reverse().map(d => `<div class="li" style="grid-template-columns:minmax(0,1fr) auto"><span class="t"><span class="code">${esc(d.kw)}</span> → sua parte ${d.parte}%<small>divisão de gasto${d.criada ? ' · criada em ' + ddmmaa(d.criada) : ''}</small></span><button class="x" data-tirdiv="${d.id}" aria-label="Apagar divisão ${esc(d.kw)}">${xSvg}</button></div>`).join(''));
   document.querySelectorAll('[data-tirdiv]').forEach(b => b.onclick = () => { DB.divisoes = DB.divisoes.filter(d => d.id !== b.dataset.tirdiv); salvarDB(); atualizarTudo(); toast('Divisão apagada'); });
+  pintarLembretes();
   pintarFilas();
 }
 $('#bkSave').onclick = () => salvar(`Meus_Gastos_backup_${HOJE}.json`, JSON.stringify(DB));
@@ -2404,6 +2473,67 @@ function atualizarTudo() {
   $('#brandSub').textContent = C.nome ? `de ${C.nome}` : 'Controle financeiro pessoal';
   $('#sideFoot').innerHTML = `${L_ALL.filter(l => l.kind !== 'manual' && !l.estimado && !l.projetado).length.toLocaleString('pt-BR')} lançamentos · ${DB.arquivos.length} arquivo${DB.arquivos.length === 1 ? '' : 's'}<br>Objetivo: ${esc(OBJETIVOS[C.objetivo] || OBJETIVOS.entender).toLowerCase()}`;
   if (!$('#app').hidden) render();
+}
+
+/* ============================================================ app no celular */
+// Instalável (manifesto + service worker), recebe arquivos do "Compartilhar" do Android e cria lembretes no calendário.
+// iPhone: não deixa site receber arquivos pelo Compartilhar; lá o caminho é "Salvar em Arquivos" + botão Enviar arquivo.
+const NO_SITE = /^https?:$/.test(location.protocol);
+const URL_APP = NO_SITE ? location.origin + '/' : 'https://meus-gastos-ai.vercel.app/';
+const IOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const INSTALADO = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+let pedidoInstalar = null;
+if (NO_SITE && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { });
+function pintarInstalar() {
+  const pode = !INSTALADO && (pedidoInstalar || IOS);
+  ['#instBtn', '#instBtnLand'].forEach(s => { const b = $(s); if (b) b.hidden = !pode; });
+}
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); pedidoInstalar = e; pintarInstalar(); });
+addEventListener('appinstalled', () => { pedidoInstalar = null; pintarInstalar(); toast('App instalado. Abra pelo ícone Meus Gastos.'); });
+async function instalar() {
+  if (pedidoInstalar) { pedidoInstalar.prompt(); await pedidoInstalar.userChoice.catch(() => null); pedidoInstalar = null; pintarInstalar(); return; }
+  if (IOS) $('#inst').hidden = false;
+}
+$('#instBtn').onclick = instalar; $('#instBtnLand').onclick = instalar;
+$('#instX').onclick = $('#instOk').onclick = () => $('#inst').hidden = true;
+$('#inst').addEventListener('click', e => { if (e.target.id === 'inst') $('#inst').hidden = true; });
+$('#quickUp').onclick = () => $('#fileIn').click();
+pintarInstalar();
+// arquivos que chegaram pelo Compartilhar: o service worker guardou no cache; aqui eles entram na fila
+async function receberCompartilhados() {
+  const q = new URLSearchParams(location.search);
+  if (!q.has('compartilhado')) return;
+  history.replaceState(null, '', location.pathname);
+  if (q.get('compartilhado') === 'erro' || !('caches' in window)) { toast('Não consegui receber o arquivo. Tente pelo botão Enviar arquivo.'); return; }
+  const cache = await caches.open('mg-compartilhados'), reqs = await cache.keys(), files = [];
+  for (const r of reqs) { const res = await cache.match(r); files.push(new File([await res.blob()], decodeURIComponent(res.headers.get('X-Nome') || 'arquivo'), { type: res.headers.get('Content-Type') || '' })); await cache.delete(r); }
+  if (files.length) receberArquivos(files); else toast('Nenhum arquivo chegou pelo compartilhamento.');
+}
+// lembretes: um evento mensal por cartão, no dia em que a fatura fecha, às 9h, com o link do painel
+function eventosLembrete() {
+  const ev = C.cartoes.map(c => ({ dia: Math.min(28, c.fecha || 1), titulo: `Enviar a fatura do ${c.nome} no Meus Gastos`, texto: `A fatura do cartão ${c.nome} fechou. Baixe no app do banco e envie: ${URL_APP}` }));
+  if (DB.arquivos.some(a => a.tipo === 'conta') || (C.bancos || []).length) ev.push({ dia: 2, titulo: 'Enviar o extrato da conta no Meus Gastos', texto: `Começou o mês: baixe o extrato do mês passado e envie: ${URL_APP}` });
+  return ev;
+}
+const proxDia = dia => { const d = new Date(); let y = d.getFullYear(), m = d.getMonth(); if (d.getDate() > dia) { m++; if (m > 11) { m = 0; y++; } } return `${y}${pad(m + 1)}${pad(dia)}`; };
+function baixarIcs() {
+  const ev = eventosLembrete(); if (!ev.length) { toast('Cadastre um cartão em Minhas respostas para criar o lembrete.'); return; }
+  const agora = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z', escI = s => s.replace(/[,;\\]/g, m => '\\' + m);
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Meus Gastos.AI//PT-BR', 'CALSCALE:GREGORIAN',
+    ...ev.flatMap((e, i) => ['BEGIN:VEVENT', `UID:mg-${i}-${e.dia}-${Date.now()}@meusgastos`, `DTSTAMP:${agora}`, `DTSTART:${proxDia(e.dia)}T090000`, 'DURATION:PT15M',
+      `RRULE:FREQ=MONTHLY;BYMONTHDAY=${e.dia}`, `SUMMARY:${escI(e.titulo)}`, `DESCRIPTION:${escI(e.texto)}`, `URL:${URL_APP}`,
+      'BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${escI(e.titulo)}`, 'TRIGGER:PT0M', 'END:VALARM', 'END:VEVENT']), 'END:VCALENDAR'].join('\r\n');
+  // no iPhone, abrir o calendário como endereço faz o iOS mostrar "Adicionar todos"; nos outros, baixa o arquivo
+  if (IOS) location.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
+  else salvar('Lembretes_Meus_Gastos.ics', ics);
+}
+function pintarLembretes() {
+  const ev = eventosLembrete(), el = $('#lembBtns'); if (!el) return;
+  if (!ev.length) { el.innerHTML = '<p class="small muted" style="margin:0">Cadastre seus cartões em Minhas respostas para criar os lembretes.</p>'; return; }
+  const g = e => `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(e.titulo)}&details=${encodeURIComponent(e.texto)}&dates=${proxDia(e.dia)}T090000/${proxDia(e.dia)}T091500&ctz=America/Sao_Paulo&recur=${encodeURIComponent('RRULE:FREQ=MONTHLY;BYMONTHDAY=' + e.dia)}`;
+  el.innerHTML = `<button class="btn primary" id="icsBtn">${IOS ? 'Adicionar ao Calendário do iPhone' : 'Baixar lembretes (.ics)'}</button>` +
+    ev.map(e => `<a class="btn" href="${g(e)}" target="_blank" rel="noopener">Google Agenda: ${esc(e.titulo.replace(' no Meus Gastos', '').replace('Enviar ', ''))}</a>`).join('');
+  $('#icsBtn').onclick = baixarIcs;
 }
 
 /* ============================================================ edição de lançamentos */
@@ -2813,6 +2943,7 @@ $('#fLimpar').onclick = limparFiltros;
 S.tab = store.get('tab', 'mes');
 rebuild();
 if (DB.prontos) mostrarApp(); else mostrarOnb();
+receberCompartilhados();
 (async () => {
   try { [sample, downloads] = await Promise.all([window.claude?.use?.('sample') ?? null, window.claude?.use?.('downloads') ?? null]); } catch { }
   $('#chatState').textContent = sample ? 'Responde com o Claude, a partir dos seus lançamentos' : 'Responde aqui no navegador, com os seus lançamentos';
