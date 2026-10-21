@@ -720,12 +720,8 @@ body{margin:0}
 <div class="modal-bg" id="inst" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="instH">
   <button class="xm" id="instX" aria-label="Fechar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   <header><h2 id="instH">Instalar no iPhone</h2><p>Leva 10 segundos. O Meus Gastos ganha um ícone e abre em tela cheia, como um app.</p></header>
-  <ol class="steps">
-    <li><div><b>Abra este endereço no Safari</b><p>Em outros navegadores do iPhone a opção pode não aparecer.</p></div></li>
-    <li><div><b>Toque em Compartilhar</b> <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 11v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8"/></svg><p>O quadrado com a seta para cima, na barra de baixo (ou de cima, no iPad).</p></div></li>
-    <li><div><b>Escolha “Adicionar à Tela de Início”</b><p>Role a lista se precisar. Confirme o nome e toque em Adicionar.</p></div></li>
-    <li><div><b>Abra pelo ícone novo</b><p>O app guarda os dados separado do Safari. Se você já tem lançamentos aqui no Safari, baixe o backup antes (Enviar extratos › Baixar backup) e restaure no app.</p></div></li>
-  </ol>
+  <ol class="steps" id="instPassos"></ol>
+  <p class="small muted" style="margin:0" id="instNota"></p>
   <footer><button class="btn primary" id="instOk">Entendi</button></footer>
 </div></div>
 <div id="tour" hidden><div class="tour-hole" id="tourHole"></div><div class="tour-card" id="tourCard" role="dialog" aria-live="polite"></div></div>
@@ -2481,18 +2477,70 @@ function atualizarTudo() {
 const NO_SITE = /^https?:$/.test(location.protocol);
 const URL_APP = NO_SITE ? location.origin + '/' : 'https://meus-gastos-ai.vercel.app/';
 const IOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const ANDROID = /android/i.test(navigator.userAgent);
 const INSTALADO = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 let pedidoInstalar = null;
 if (NO_SITE && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { });
 function pintarInstalar() {
-  const pode = !INSTALADO && (pedidoInstalar || IOS);
+  const pode = !INSTALADO && (pedidoInstalar || IOS || ANDROID);
   ['#instBtn', '#instBtnLand'].forEach(s => { const b = $(s); if (b) b.hidden = !pode; });
 }
 addEventListener('beforeinstallprompt', e => { e.preventDefault(); pedidoInstalar = e; pintarInstalar(); });
-addEventListener('appinstalled', () => { pedidoInstalar = null; pintarInstalar(); toast('App instalado. Abra pelo ícone Meus Gastos.'); });
+addEventListener('appinstalled', () => { pedidoInstalar = null; pintarInstalar(); toast('App instalado. Procure “Meus Gastos” na tela inicial ou na lista de apps.'); });
+// Passos de instalação do navegador que a pessoa está usando: ninguém precisa trocar de navegador.
+// Os nomes dos menus podem variar um pouco entre versões; a nota no fim da janela avisa.
+const ICO_COMP = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 11v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8"/></svg>';
+function navegador(ua = navigator.userAgent) {
+  const IOS_ = /iphone|ipad|ipod/i.test(ua) || (ua === navigator.userAgent && IOS), AND_ = /android/i.test(ua);
+  const app = /FBAN|FBAV|FB_IAB|Instagram|WhatsApp|Line\/|Twitter|TikTok|musical_ly|LinkedInApp|GSA\//.test(ua) || (AND_ && /; wv\)/.test(ua));
+  const espera = ['Espere até 1 minuto', 'O ícone aparece na tela inicial ou na lista de apps: procure “Meus Gastos”. Se aparecer “Iniciando download sem notificação”, tudo bem, a instalação continua sem aviso.'];
+  const naoApareceu = nome => ['Não apareceu?', `<b>Xiaomi, Redmi ou POCO:</b> Configurações › Apps › Gerenciar apps › ${nome} › Outras permissões › “Atalhos na tela inicial” › Permitir. <b>Outras marcas:</b> Configurações › Apps › ${nome} › Notificações › ativar. Depois tente de novo.`];
+  const dadosIOS = ['Abra pelo ícone novo', 'O app guarda os dados separado do navegador. Se você já tem lançamentos aqui, baixe o backup antes (Enviar extratos › Baixar backup) e restaure no app.'];
+  if (app) return { nome: 'navegador do app', titulo: 'Abra no navegador para instalar', passos: [
+    ['Você abriu o link dentro de outro app', 'Pelo WhatsApp, Instagram ou Facebook não dá para instalar. O painel funciona aqui, mas para ganhar o ícone abra no navegador.'],
+    [IOS_ ? `Toque em ${ICO_COMP} ou nos três pontinhos` : 'Toque nos três pontinhos ⋮', `Escolha <b>“Abrir no navegador”</b>, <b>“Abrir no ${IOS_ ? 'Safari' : 'Chrome'}”</b> ou parecido.`],
+    ['No navegador, toque em Instalar app de novo', 'Os passos certos para ele vão aparecer aqui.']] };
+  if (IOS_) {
+    if (/CriOS/.test(ua)) return { nome: 'Chrome', titulo: 'Instalar no iPhone (Chrome)', passos: [
+      [`Toque em Compartilhar ${ICO_COMP}`, 'Fica na barra de endereço, em cima à direita.'], ['Escolha “Adicionar à Tela de Início”', 'Role a lista se precisar. Confirme o nome e toque em Adicionar.'], dadosIOS],
+      nota: 'Se a opção não aparecer, o iPhone está com o iOS antigo: abra o link no Safari e siga os mesmos passos.' };
+    if (/FxiOS|EdgiOS|OPiOS/.test(ua)) { const n = /FxiOS/.test(ua) ? 'Firefox' : /EdgiOS/.test(ua) ? 'Edge' : 'Opera'; return { nome: n, titulo: `Instalar no iPhone (${n})`, passos: [
+      ['Abra o menu do navegador', n === 'Firefox' ? 'Os três tracinhos ☰, embaixo à direita.' : 'Os três pontinhos ⋯, embaixo.'], [`Toque em Compartilhar ${ICO_COMP}`, 'Às vezes ele já aparece direto na barra.'], ['Escolha “Adicionar à Tela de Início”', 'Confirme o nome e toque em Adicionar.'], dadosIOS],
+      nota: 'Se a opção não aparecer, abra o link no Safari e siga os mesmos passos.' }; }
+    return { nome: 'Safari', titulo: 'Instalar no iPhone', passos: [
+      [`Toque em Compartilhar ${ICO_COMP}`, 'O quadrado com a seta para cima, na barra de baixo (ou de cima, no iPad).'], ['Escolha “Adicionar à Tela de Início”', 'Role a lista se precisar. Confirme o nome e toque em Adicionar.'], dadosIOS] };
+  }
+  if (/SamsungBrowser/.test(ua)) return { nome: 'Samsung Internet', titulo: 'Instalar no Samsung Internet', passos: [
+    ['Toque no ícone de instalar, se aparecer', 'Um ícone de download ou de “+” dentro da barra de endereço. Se aparecer, toque nele e confirme.'],
+    ['Ou pelo menu ☰', 'Os três tracinhos, embaixo à direita › “Adicionar página a” › “Tela inicial”.'], espera, naoApareceu('Samsung Internet')] };
+  if (/Firefox/.test(ua)) return { nome: 'Firefox', titulo: 'Instalar no Firefox', passos: [
+    ['Toque nos três pontinhos ⋮', 'Em cima ou embaixo à direita, conforme a versão.'], ['Escolha “Instalar” ou “Adicionar à tela inicial”', 'Confirme em Adicionar.'], espera, naoApareceu('Firefox')] };
+  if (/EdgA/.test(ua)) return { nome: 'Edge', titulo: 'Instalar no Edge', passos: [
+    ['Toque nos três pontinhos ⋯', 'Na barra de baixo.'], ['Escolha “Adicionar ao telefone” ou “Adicionar à tela inicial”', 'Às vezes é preciso deslizar o menu para o lado. Confirme em Instalar.'], espera, naoApareceu('Edge')] };
+  if (/OPR\//.test(ua)) return { nome: 'Opera', titulo: 'Instalar no Opera', passos: [
+    ['Toque nos três pontinhos ⋮', 'Em cima à direita.'], ['Escolha “Adicionar a…” › “Tela inicial”', 'Confirme em Adicionar.'], espera, naoApareceu('Opera')] };
+  if (/MiuiBrowser|XiaoMi/.test(ua)) return { nome: 'Navegador Mi', titulo: 'Instalar no navegador da Xiaomi', passos: [
+    ['Toque no menu ☰ ou nos três pontinhos', 'Embaixo à direita.'], ['Escolha “Adicionar à tela inicial”', 'Se não houver essa opção, abra o link no Chrome e toque em ⋮ › Instalar app.'], espera, naoApareceu('Navegador')] };
+  return { nome: 'Chrome', titulo: AND_ ? 'Instalar no Android' : 'Instalar no computador', passos: AND_ ? [
+    ['Toque nos três pontinhos ⋮', 'Em cima à direita.'], ['Escolha “Instalar app” ou “Adicionar à tela inicial”', 'Confirme em Instalar.'], espera, naoApareceu('Chrome')] : [
+    ['Clique no ícone de instalar na barra de endereço', 'Um monitor com uma seta, à direita do endereço. Ou menu ⋮ › “Transmitir, salvar e compartilhar” › “Instalar página como app”.'], ['Confirme em Instalar', 'O Meus Gastos abre numa janela própria e ganha atalho no menu Iniciar.']] };
+}
+function instrucoes() {
+  const n = navegador();
+  $('#instH').textContent = n.titulo;
+  $('#instPassos').innerHTML = n.passos.map(([t, p]) => `<li><div><b>${t}</b><p>${p}</p></div></li>`).join('');
+  $('#instNota').textContent = (n.nota ? n.nota + ' ' : '') + 'Os nomes dos menus podem mudar um pouco conforme a versão do navegador.';
+  $('#inst').hidden = false;
+}
 async function instalar() {
-  if (pedidoInstalar) { pedidoInstalar.prompt(); await pedidoInstalar.userChoice.catch(() => null); pedidoInstalar = null; pintarInstalar(); return; }
-  if (IOS) $('#inst').hidden = false;
+  if (pedidoInstalar) {
+    pedidoInstalar.prompt();
+    const r = await pedidoInstalar.userChoice.catch(() => null); pedidoInstalar = null; pintarInstalar();
+    // no Android a instalação termina em segundo plano; sem notificação do Chrome, ela não avisa
+    if (r && r.outcome === 'accepted') toastAcao('Instalando… em até 1 minuto o “Meus Gastos” aparece na tela inicial ou na lista de apps.', 'Não apareceu?', () => instrucoes());
+    return;
+  }
+  instrucoes();
 }
 $('#instBtn').onclick = instalar; $('#instBtnLand').onclick = instalar;
 $('#instX').onclick = $('#instOk').onclick = () => $('#inst').hidden = true;

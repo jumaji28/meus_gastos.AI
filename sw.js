@@ -4,7 +4,7 @@
    2) Deixa o app abrir sem internet: a página vem sempre da rede quando há conexão (pega a versão nova)
       e do cache quando não há. Bibliotecas do cdnjs e fontes ficam em cache depois do primeiro uso.
    Os extratos nunca saem do aparelho: tudo acontece aqui dentro. */
-const VERSAO = 'mg-v1';
+const VERSAO = 'mg-v2';
 const ESTATICOS = ['/', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -38,7 +38,8 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;
   // página: rede primeiro, cache se estiver sem internet
   if (req.mode === 'navigate') {
-    e.respondWith(fetch(req).then(r => { const c = r.clone(); caches.open(VERSAO).then(k => k.put('/', c)); return r; })
+    // cache: 'no-cache' = sempre confere com o servidor, para ninguém ficar preso numa versão antiga
+    e.respondWith(fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }).then(r => { const c = r.clone(); caches.open(VERSAO).then(k => k.put('/', c)); return r; })
       .catch(() => caches.match('/').then(r => r || caches.match(req))));
     return;
   }
