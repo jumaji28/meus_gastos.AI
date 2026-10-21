@@ -149,6 +149,35 @@ h1,h2,h3{font-family:var(--f-display);font-weight:700;margin:0;text-wrap:balance
 .month button{all:unset;cursor:pointer;width:30px;height:30px;display:grid;place-items:center;border-radius:50%;color:var(--ink-2)}
 .month button:hover{background:var(--surface-2)}
 .month select{border:0;background:transparent;font-weight:600;padding:4px 2px;font-size:13px;cursor:pointer}
+/* linha do tempo: escolhe o intervalo de dias que o painel soma */
+.tl{display:flex;flex-direction:column;gap:12px}
+.tl-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.tl-head h2{font-size:15px}
+.tl-chips{display:flex;flex-wrap:wrap;gap:6px}
+.tl-chips button{all:unset;cursor:pointer;border:1px solid var(--line-2);border-radius:999px;padding:4px 11px;font-size:12.5px;font-weight:600;color:var(--ink-2);background:var(--surface)}
+.tl-chips button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.tl-chips button:focus-visible{outline:2px solid var(--accent)}
+.tl-datas{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px}
+.tl-datas label{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--ink-2)}
+.tl-datas input{font-size:14px;background:var(--surface);border:1px solid var(--line-2);border-radius:8px;padding:5px 8px;font:inherit;font-weight:600;color:var(--ink);min-width:0}
+.tl-range{position:relative;height:28px;margin:0 9px}
+.tl-track{position:absolute;left:0;right:0;top:12px;height:5px;border-radius:5px;background:var(--line)}
+.tl-track i{position:absolute;top:0;bottom:0;background:var(--accent);border-radius:5px}
+.tl-range input{position:absolute;left:-9px;width:calc(100% + 18px);top:0;height:28px;margin:0;background:none;pointer-events:none;-webkit-appearance:none;appearance:none}
+.tl-range input::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;width:18px;height:18px;border-radius:50%;background:var(--surface);border:2px solid var(--accent);cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tl-range input::-moz-range-thumb{pointer-events:auto;width:14px;height:14px;border-radius:50%;background:var(--surface);border:2px solid var(--accent);cursor:grab}
+.tl-range input::-webkit-slider-runnable-track{background:none}
+.tl-range input::-moz-range-track{background:none}
+.tl-range input:focus-visible::-webkit-slider-thumb{outline:2px solid var(--accent);outline-offset:2px}
+.tl-ends{display:flex;justify-content:space-between;color:var(--muted)}
+/* pergunta sobre transferência para si mesmo */
+.dv-item{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface-2);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center}
+.dv-item b{font-size:15px}
+.dv-item .v{font-weight:700;font-size:17px;font-variant-numeric:tabular-nums}
+.dv-item small{color:var(--muted);font-size:12px;grid-column:1/-1}
+.dv-bts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.dv-bts .btn{justify-content:center;padding:12px;font-size:14px}
+@media (max-width:520px){.dv-bts{grid-template-columns:1fr}}
 .btn{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font-weight:600;font-size:13px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink)}
 .btn:hover{border-color:var(--accent)}
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
@@ -500,7 +529,7 @@ body{margin:0}
     <div class="navgrp">
       <div class="nav-label">Painel</div>
       <nav class="nav" id="nav" role="tablist">
-        <button role="tab" data-tab="mes" aria-selected="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Mês atual</button>
+        <button role="tab" data-tab="mes" aria-selected="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Meu período</button>
         <button role="tab" data-tab="hist"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Dashboard anual</button>
         <button role="tab" data-tab="tab"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/></svg>Tabela consolidada</button>
         <button role="tab" data-tab="orc"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>Orçamento</button>
@@ -522,7 +551,7 @@ body{margin:0}
   <main class="main">
     <div class="wrap">
       <div class="topbar">
-        <div class="crumb">Meus Gastos.AI › <b id="crumbTab">Mês atual</b></div>
+        <div class="crumb">Meus Gastos.AI › <b id="crumbTab">Meu período</b></div>
         <button class="btn primary" id="quickUp" title="Escolher a fatura ou o extrato e adicionar direto"><svg viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>Enviar arquivo</button>
         <div class="controls" id="periodCtl">
           <div class="month">
@@ -548,6 +577,12 @@ body{margin:0}
 
       <!-- ================= MÊS ATUAL ================= -->
       <section id="tab-mes" class="wrap" style="gap:18px">
+        <div class="panel tl" id="tl">
+          <div class="tl-head"><h2>Período</h2><div class="tl-chips" id="tlChips" role="group" aria-label="Atalhos de período"></div></div>
+          <div class="tl-datas"><label>De <input type="date" id="tlIni" aria-label="Primeiro dia"></label><label>até <input type="date" id="tlFim" aria-label="Último dia"></label><span class="small muted" id="tlInfo"></span></div>
+          <div class="tl-range"><div class="tl-track"><i id="tlFill"></i></div><input type="range" id="tlA" min="0" step="1" aria-label="Arraste para escolher o primeiro dia"><input type="range" id="tlB" min="0" step="1" aria-label="Arraste para escolher o último dia"></div>
+          <div class="tl-ends small"><span id="tlMin"></span><span id="tlMax"></span></div>
+        </div>
         <div id="stale"></div>
         <div class="hero" id="hero"></div>
         <div class="tiles" id="tiles"></div>
@@ -744,6 +779,14 @@ body{margin:0}
   <div class="ex" id="edPrev"></div>
   <footer><button class="btn esq" id="edReset">Restaurar original</button><button class="btn" id="edCancel">Cancelar</button><button class="btn primary" id="edOk">Atualizar painel</button></footer>
 </div></div>
+<div class="modal-bg" id="dvd" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dvH" style="width:min(520px,100%)">
+  <button class="xm" id="dvX" aria-label="Responder depois"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  <header><h2 id="dvH">Foi uma transferência para você mesmo?</h2><p id="dvP"></p></header>
+  <div class="dv-item" id="dvItem"></div>
+  <div class="dv-bts" id="dvBts"></div>
+  <label class="chk"><input type="checkbox" id="dvLembrar" checked><span>Fazer o mesmo com as próximas parecidas<small id="dvKw"></small></span></label>
+  <footer><span class="small muted esq" id="dvCont"></span><button class="btn" id="dvDepois">Responder depois</button></footer>
+</div></div>
 <div class="modal-bg" id="inst" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="instH">
   <button class="xm" id="instX" aria-label="Fechar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   <header><h2 id="instH">Instalar no iPhone</h2><p>Leva 10 segundos. O Meus Gastos ganha um ícone e abre em tela cheia, como um app.</p></header>
@@ -844,15 +887,18 @@ function liquidoDe(bruto, dep = 0, outros = 0) {
   return { bruto, inss, ir, outros, liquido: r2(Math.max(0, bruto - inss - ir - outros)) };
 }
 const cfgPadrao = () => ({ nome: '', titular: '', objetivo: 'entender', salario: 0, salarioTipo: 'liquido', salarioBruto: 0, dependentes: 0, descontosFolha: 0, diaSalario: 5, empresa: '', va: 0, vaNoExtrato: false, outras: 0,
-  cartoes: [], modoCartao: 'fecha', todasFaturas: true, bancos: [], rateio: 'abate', fixos: [], metaPoupanca: 0, metas: {}, metasTocadas: false });
+  cartoes: [], modoCartao: 'compra', todasFaturas: true, bancos: [], rateio: 'abate', fixos: [], metaPoupanca: 0, metas: {}, metasTocadas: false });
 function normalizarDB(d) {
   d = d && typeof d === 'object' ? d : {};
-  return { v: 1, cfg: Object.assign(cfgPadrao(), d.cfg || {}), lanc: Array.isArray(d.lanc) ? d.lanc : [], arquivos: Array.isArray(d.arquivos) ? d.arquivos : [],
+  // desde 21/10/2026 tudo conta pela data do lançamento (no cartão, a da compra); o ciclo da fatura vira um atalho da linha do tempo
+  return { v: 1, cfg: Object.assign(cfgPadrao(), d.cfg || {}, { modoCartao: 'compra' }), lanc: Array.isArray(d.lanc) ? d.lanc : [], arquivos: Array.isArray(d.arquivos) ? d.arquivos : [],
     regras: Array.isArray(d.regras) ? d.regras : [], prontos: !!d.prontos, prox: d.prox || 1,
     // ajustes feitos à mão, por lançamento: { [id]: { parte?, valor?, cat?, sub?, fv?, ignorar?, nota? } }
     ajustes: d.ajustes && typeof d.ajustes === 'object' ? d.ajustes : {},
     // divisões que valem para todos os meses: { id, kw, parte } (ex.: aluguel, minha parte 50%)
-    divisoes: Array.isArray(d.divisoes) ? d.divisoes : [] };
+    divisoes: Array.isArray(d.divisoes) ? d.divisoes : [],
+    // respostas ao pop-up "foi uma transferência para você mesmo?": { [idLanc]: 'transf' | 'despesa' | 'receita' }
+    respostas: d.respostas && typeof d.respostas === 'object' ? d.respostas : {} };
 }
 function carregarDB() { try { const s = localStorage.getItem(DB_KEY); if (s) return normalizarDB(JSON.parse(s)); } catch { } return normalizarDB({}); }
 let DB = carregarDB();
@@ -916,14 +962,26 @@ function titularRx() {
   const t = nk(C.titular).split(/\s+/).filter(w => w.length >= 3 && !['dos', 'das', 'de', 'da', 'do'].includes(w));
   return t.length >= 2 ? { p: t[0], resto: t.slice(1), ini2: t[1].slice(0, 2) } : null;
 }
-const ehTitular = d => !!TIT && d.includes(' ' + TIT.p) && (TIT.resto.some(w => d.includes(w)) || d.includes(' ' + TIT.p + ' ' + TIT.ini2));
+// Quem mandou ou recebeu é a própria pessoa? Decide pelo nome na descrição (texto de descN).
+//   'sim'    = primeiro nome + outro nome dela ("JOAO VICTOR VICENTIN DIOGO", "JOAO DIOGO"), ou cortado como no Itaú ("JOAO VI");
+//   'talvez' = só o primeiro nome, cortado ("JOAO V", "JOAO 18/10"), ou os sobrenomes sem o primeiro nome
+//              ("MARIA VICENTIN DIOGO" pode ser a mãe): o painel pergunta no pop-up;
+//   ''       = outro nome ("JOAO PE…") ou nenhum.
+function nomeTitular(d) {
+  if (!TIT) return '';
+  const m = d.match(new RegExp(' ' + reEsc(TIT.p) + ' (\\S*)')), resto = TIT.resto.filter(w => d.includes(' ' + w)).length;
+  if (m && (resto || m[1].startsWith(TIT.ini2))) return 'sim';
+  if (m && (!/[a-z]/.test(m[1]) || (m[1].length === 1 && m[1] === TIT.ini2[0]))) return 'talvez';
+  return resto >= 2 ? 'talvez' : '';
+}
+const ehTitular = d => nomeTitular(d) === 'sim';
 const formaDe = (r, d) => r.kind === 'cartao' ? 'Crédito' : /\bpix\b/.test(d) ? 'PIX' : /\bted\b|\bdoc\b|transf/.test(d) ? 'TED/DOC' : /boleto|pagto|pagamento|\bpag\b/.test(d) ? 'Boleto' : 'Débito';
 /** Classifica um lançamento bruto. Conta: v negativo = saída. Cartão: v positivo = compra, negativo = estorno ou pagamento. */
 function classificar(r) {
   const d = descN(r.desc), cartao = r.kind === 'cartao', entrada = cartao ? r.v < 0 : r.v > 0;
   const fim = (tipo, cat, sub, fv, regra = '') => ({ tipo, cat, sub, fv, regra, forma: formaDe(r, d),
     valor: tipo === 'Transferencia' ? Math.abs(r.v) : tipo === 'Receita' ? (cartao ? -r.v : r.v) : (cartao ? r.v : -r.v) });
-  for (const u of REGRAS_USU) if (u.rx.test(d)) return fim(u.tipo || tipoDaCat(u.cat), u.cat, u.sub || u.cat, u.fv || FV_CAT[u.cat] || 'Variável', 'sua regra: ' + u.kw);
+  for (const u of REGRAS_USU) if (u.rx.test(d) && (!u.s || (u.s === '+') === entrada)) return fim(u.tipo || tipoDaCat(u.cat), u.cat, u.sub || u.cat, u.fv || FV_CAT[u.cat] || 'Variável', 'sua regra: ' + u.kw);
   // pagamento da própria fatura, dentro do arquivo da fatura: não é gasto nem receita
   if (cartao && r.v < 0 && /^pagamento|^pagto|pagamento (recebido|efetuado|de fatura|da fatura|fatura|obrigado|em )|pagto fatura|credito de pagamento|pagamento$/.test(d.trim())) return { ignorar: true };
   if (!cartao && ehTitular(d)) return fim('Transferencia', 'Movimentação interna', 'Entre minhas contas', 'Variável', 'seu nome no extrato');
@@ -962,13 +1020,27 @@ function compCartao(c, iso) {
 }
 function janela(c, mes) {
   if (C.modoCartao === 'compra') return { ini: `${mes}-01`, fim: `${mes}-${pad(diaEm(mes, 31))}` };
-  const M = C.modoCartao === 'vence' && c.vence <= c.fecha ? prevMes(mes) : mes, A = prevMes(M);
-  return { ini: `${A}-${pad(diaEm(A, c.fecha))}`, fim: addDays(`${M}-${pad(diaEm(M, c.fecha))}`, -1) };
+  return janelaFatura(c, C.modoCartao === 'vence' && c.vence <= c.fecha ? prevMes(mes) : mes);
 }
+// ciclo da fatura que fecha no mês `mes`: do dia do fechamento do mês anterior até a véspera do fechamento.
+// Serve para o atalho "Fatura" da linha do tempo e para o aviso de fatura nova, qualquer que seja a regra do mês.
+function janelaFatura(c, mes) { const A = prevMes(mes); return { ini: `${A}-${pad(diaEm(A, c.fecha))}`, fim: addDays(`${mes}-${pad(diaEm(mes, c.fecha))}`, -1) }; }
+const fimDoMes = mes => isoOf(new Date(+mes.slice(0, 4), +mes.slice(5, 7), 0));
 function periodo(mes) {
-  const [y, m] = mes.split('-').map(Number), ini = `${mes}-01`, fim = isoOf(new Date(y, m, 0));
+  const [y, m] = mes.split('-').map(Number), ini = `${mes}-01`, fim = fimDoMes(mes);
   const cartoes = C.cartoes.map(c => ({ id: c.id, nome: c.nome, ...janela(c, mes) }));
-  return { ini, fim, cartoes, cIni: cartoes.length ? cartoes.map(c => c.ini).sort()[0] : ini, cFim: cartoes.length ? cartoes.map(c => c.fim).sort().pop() : fim, mes, label: `${MESES_L[m - 1]} de ${y}` };
+  return { ini, fim, cartoes, cIni: cartoes.length ? cartoes.map(c => c.ini).sort()[0] : ini, cFim: cartoes.length ? cartoes.map(c => c.fim).sort().pop() : fim, mes, label: `${MESES_L[m - 1]} de ${y}`,
+    mesInteiro: true, faixa: `${ddmm(ini)} a ${ddmm(fim)}` };
+}
+// Intervalo livre da linha do tempo. Cada lançamento conta pela própria data (no cartão, a data da compra),
+// então não existe a dúvida de quando a fatura começa: a pessoa escolhe os dias que quer somar.
+// Um mês inteiro volta para periodo(mes), que tem a previsão do salário, das contas fixas e da meta de guardar.
+function intervaloDe(ini, fim) {
+  if (fim < ini) [ini, fim] = [fim, ini];
+  const mes = ini.slice(0, 7);
+  if (ini === `${mes}-01` && fim === fimDoMes(mes)) return periodo(mes);
+  return { ini, fim, cartoes: C.cartoes.map(c => ({ id: c.id, nome: c.nome, ini, fim })), cIni: ini, cFim: fim, mes: fim.slice(0, 7), mesInteiro: false,
+    label: `de ${ddmmaa(ini)} a ${ddmmaa(fim)}`, faixa: `${ddmm(ini)} a ${ddmm(fim)}` };
 }
 const usaJanela = () => C.cartoes.length && C.modoCartao !== 'compra';
 const txtCartoes = p => p.cartoes.map(c => `cartão ${c.nome} de ${ddmm(c.ini)} a ${ddmm(c.fim)}`).join(' · ');
@@ -1166,7 +1238,38 @@ function lerLinhasPDF(linhas, nome) {
 
 /* ===================================================================== montagem dos lançamentos */
 let L_ALL = [], L = [], META = {}, META_TOT = 0, P = { renda: 0, metaPoupanca: 0 }, SAL_CHEIO = 0, VA_PADRAO = 0, MES_LIST = [MES_ATUAL], ANOS = [+MES_ATUAL.slice(0, 4)], maxMes = MES_ATUAL;
-let RESUMO_ALL = [], RESUMO = [], BANCOS = ['Todos'], COBERTURA = {}, BANCO_SAL = '', TEM_DADOS = false, PRIMEIRO_MES = MES_ATUAL, VA_MESES_REAIS = [], SAL_MESES_EST = [];
+let RESUMO_ALL = [], RESUMO = [], BANCOS = ['Todos'], COBERTURA = {}, BANCO_SAL = '', TEM_DADOS = false, PRIMEIRO_MES = MES_ATUAL, VA_MESES_REAIS = [], SAL_MESES_EST = [], DUVIDAS = [];
+
+/* Transferência para si mesmo: dinheiro que sai de uma conta da pessoa e entra em outra (ou numa caixinha, cofrinho, reserva)
+   não é despesa nem receita. Contar como as duas coisas é a causa mais comum de número inflado.
+   Quem decide é o NOME de quem mandou ou recebeu (nomeTitular):
+   1) Nome da pessoa na descrição → Transferência "Entre minhas contas", sem perguntar (em classificar).
+   2) Dúvida → pop-up depois de enviar arquivos (duvidaTransf): nome cortado ou só os sobrenomes; mesmo valor que saiu
+      de um banco e entrou em outro em até 3 dias, sem nome que confirme; palavras de caixinha ou reserva.
+      A resposta vira ajuste da linha e, se a pessoa quiser, uma regra para as próximas parecidas.
+   Nada aqui mexe no que a pessoa já decidiu: regra dela, categoria editada ou resposta dada. */
+const decidido = l => l.porRegra || !!(DB.ajustes[l.id] || {}).cat || !!DB.respostas[l.id];
+// marca os pares "saiu de um banco e entrou o mesmo valor em outro": não muda nada sozinho, só vira pergunta
+function casarTransferencias(out) {
+  const livre = l => l.kind === 'conta' && !decidido(l) && l.sub !== 'Salário' && l.tipo !== 'Ignorado' && (l.tipo !== 'Transferencia' || l.sub === 'Entrada extraordinária');
+  const entradas = out.filter(l => livre(l) && l.entrada), usadas = new Set();
+  out.filter(l => livre(l) && !l.entrada).forEach(s => {
+    const v = Math.abs(s.bruto);
+    const e = entradas.find(e => !usadas.has(e) && e.banco !== s.banco && Math.abs(Math.abs(e.bruto) - v) < .005 && Math.abs(diffDays(s.data, e.data)) <= 3);
+    if (!e) return;
+    usadas.add(e); s.par = e; e.par = s;
+  });
+}
+const RX_PROPRIA = / (caixinha|cofrinho|porquinho|reserva|cofre|guardad|mesma titularidade|mesmo titular|conta propria|entre contas|para mim)/;
+function duvidaTransf(l) {
+  if (l.kind !== 'conta' || !l.id || decidido(l) || l.tipo === 'Ignorado' || l.sub === 'Salário') return '';
+  if (l.sub === 'Entre minhas contas' || l.cat === 'Investimentos' || l.sub === 'Pagamento de fatura') return '';
+  const d = descN(l.desc);
+  if (nomeTitular(d) === 'talvez') return 'o nome na descrição está cortado ou é parecido com o seu';
+  if (l.par && !l.par.duvidaPar) { l.duvidaPar = true; return `o mesmo valor ${l.entrada ? 'saiu' : 'entrou'} ${l.entrada ? 'do' : 'no'} ${l.par.banco} em ${ddmm(l.par.data)}`; }
+  if (RX_PROPRIA.test(d)) return 'a descrição parece de uma caixinha ou reserva sua';
+  return '';
+}
 const ROTULO = { Transferencia: 'Transferência' };
 const rot = s => ROTULO[s] || s;
 const isDesp = l => l.tipo === 'Despesa', isRec = l => l.tipo === 'Receita', isTransf = l => l.tipo === 'Transferencia';
@@ -1188,7 +1291,11 @@ function aplicarAjuste(o, aj, div) {
   if (aj) {
     if (aj.parte != null) { o.valor = r2(orig * aj.parte / 100); notas.push(`sua parte ${aj.parte}%`); }
     if (aj.valor != null) { o.valor = r2(aj.valor * (orig < 0 ? -1 : 1)); notas.push('valor editado'); }
-    if (aj.cat) { o.cat = aj.cat; o.tipo = tipoDaCat(aj.cat); notas.push('categoria editada'); }
+    if (aj.cat) {
+      o.cat = aj.cat; o.tipo = tipoDaCat(aj.cat); notas.push('categoria editada');
+      // o sinal segue o novo tipo: PIX recebido que vira receita fica positivo; o que vira despesa abate o gasto
+      const a = Math.abs(o.valor); o.valor = o.tipo === 'Transferencia' || (o.tipo === 'Receita') === o.entrada ? a : -a;
+    }
     if (aj.sub) o.sub = aj.sub;
     if (aj.fv) o.fv = aj.fv;
     if (aj.ignorar) { o.tipo = 'Ignorado'; notas.push('ignorado no painel'); }
@@ -1208,10 +1315,12 @@ function rebuild() {
     const card = r.kind === 'cartao' ? cards[r.cartao] : null;
     const o = { id: r.id, data: r.data, tipo: k.tipo, cat: k.cat, sub: k.sub, fv: k.fv, valor: +k.valor.toFixed(2), forma: k.forma,
       conta: r.kind === 'cartao' ? 'Cartão ' + (card ? card.nome : r.banco || '') : (r.banco || 'Conta'), banco: (card && card.banco) || r.banco || 'Outro banco',
-      parcela: r.parcela || '', desc: r.desc, status: r.data > HOJE ? 'Agendado' : 'Pago', obs: k.regra ? 'regra: ' + k.regra : '', origem: r.arqNome || '', kind: r.kind, cartao: r.cartao || '' };
+      parcela: r.parcela || '', desc: r.desc, status: r.data > HOJE ? 'Agendado' : 'Pago', obs: k.regra ? 'regra: ' + k.regra : '', origem: r.arqNome || '', kind: r.kind, cartao: r.cartao || '',
+      bruto: r.v, entrada: r.kind === 'cartao' ? r.v < 0 : r.v > 0, porRegra: (k.regra || '').startsWith('sua regra') };
     aplicarAjuste(o, DB.ajustes[r.id], divs.find(d => d.rx.test(descN(r.desc))));
     out.push(o);
   });
+  casarTransferencias(out);
   const compDe = l => l.kind === 'cartao' && cards[l.cartao] ? compCartao(cards[l.cartao], l.data) : l.data.slice(0, 7);
   const fechar = l => { l.mes = compDe(l); l.ano = +l.mes.slice(0, 4); l.tipoF = tipoDe(l); return l; };
   out.forEach(fechar);
@@ -1281,6 +1390,7 @@ function rebuild() {
   out.sort((a, b) => a.data.localeCompare(b.data) || a.id - b.id);
   L_ALL = out;
   L_ALL.forEach(l => l._mesN = cap(MESES_L[+l.mes.slice(5, 7) - 1]));
+  DUVIDAS = L_ALL.filter(l => (l.duvida = duvidaTransf(l))).sort((a, b) => b.data.localeCompare(a.data));
   maxMes = [MES_ATUAL, ...L_ALL.map(l => l.mes)].sort().pop();
   MES_LIST = []; for (let m = PRIMEIRO_MES; m <= maxMes; m = nextMes(m)) MES_LIST.push(m);
   ANOS = [...new Set(MES_LIST.map(m => +m.slice(0, 4)))].filter(a => L_ALL.some(l => l.ano === a && isDesp(l) && l.mes < MES_ATUAL && !l.manual));
@@ -1305,8 +1415,10 @@ const mesesFechados = ano => mesesFechadosLista(ano).length;
 
 /* ===================================================================== estado das telas */
 let pularTour = false;  // logo depois de "Gerar meu painel" o chat abre no lugar do tour
-const S = { tab: 'mes', mes: MES_ATUAL, ano: +MES_ATUAL.slice(0, 4), tv: 'resumo' };
-// filtros globais (barra no topo): valem para Mês atual, Dashboard anual, Tabela e Orçamento
+// ini/fim: intervalo livre escolhido na linha do tempo; vazios = o mês inteiro de S.mes
+const S = { tab: 'mes', mes: MES_ATUAL, ini: '', fim: '', ano: +MES_ATUAL.slice(0, 4), tv: 'resumo' };
+const pAtual = () => S.ini ? intervaloDe(S.ini, S.fim) : periodo(S.mes);
+// filtros globais (barra no topo): valem para Meu período, Dashboard anual, Tabela e Orçamento
 const TIPOS = ['Todos', 'Cartão', 'Pix', 'Investimento'], MOVS = ['Todos', 'Despesa', 'Receita'];
 const G = { banco: store.get('fBanco', 'Todos'), tipo: store.get('fTipo', 'Todos'), mov: store.get('fMov', 'Todos') };
 if (!TIPOS.includes(G.tipo)) G.tipo = 'Todos'; if (!MOVS.includes(G.mov)) G.mov = 'Todos';
@@ -1320,7 +1432,9 @@ function aplicarFiltros() {
 }
 // média mensal de um ano: soma dos meses fechados ÷ nº de meses fechados
 function mediaAno(ano, f) { const ms = new Set(mesesFechadosLista(ano)); if (!ms.size) return 0; return sum(L.filter(l => ms.has(l.mes) && f(l))) / ms.size; }
-const noPeriodo = (p, f = () => true) => L.filter(l => l.mes === p.mes && f(l));
+// lançamentos do período pela data. Num intervalo livre ficam de fora as estimativas mensais (salário e VA que não vieram
+// nos arquivos): ele soma só o que aconteceu, para bater com o extrato.
+const noPeriodo = (p, f = () => true, base = L) => base.filter(l => l.data >= p.ini && l.data <= p.fim && (p.mesInteiro || !l.estimado) && f(l));
 
 // Receita que ainda não caiu no mês aberto: usa o salário e o VA informados nas respostas
 // (ou o mês anterior, se não informou), para o mês corrente ter a mesma base dos anteriores.
@@ -1365,17 +1479,19 @@ function calc(p) {
   const recebido = sum(rec.filter(l => l.data <= corte));
   // falta receber só faz sentido sem filtro de tipo e com o banco onde o salário cai
   const rendaVale = G.tipo === 'Todos' && (G.banco === 'Todos' || !BANCO_SAL || G.banco === BANCO_SAL);
+  // previsão (salário que vai cair, contas fixas, meta de guardar) só no mês inteiro; o intervalo livre mostra o que aconteceu
+  const prever = p.mesInteiro;
   const prev = previsaoRenda(p.mes, passado);
-  const salFalta = passado || !rendaVale ? 0 : prev.salFalta, vaEst = passado || !rendaVale ? 0 : prev.vaEst;
+  const salFalta = passado || !rendaVale || !prever ? 0 : prev.salFalta, vaEst = passado || !rendaVale || !prever ? 0 : prev.vaEst;
   const aReceber = salFalta + vaEst;
   let fixas = 0; const fixasItens = [];
-  if (!passado) fixasRecorrentes(p).forEach(r => {
+  if (!passado && prever) fixasRecorrentes(p).forEach(r => {
     const ja = sum(desp.filter(l => l.cat === r.cat && l.sub === r.sub && l !== r.atrasado)); const falta = Math.max(0, r.tipico - ja);
     if (falta > 1) { fixas += falta; fixasItens.push({ ...r, falta }); }
   });
   const entradas = recebido + aReceber;
   const comprometido = agendado + fixas;
-  const meta = P.metaPoupanca;
+  const meta = prever ? P.metaPoupanca : 0;
   const livre = entradas - gasto - comprometido - meta;
   const diasTot = diffDays(p.ini, p.fim) + 1;
   const diasPass = passado ? diasTot : (futuro ? 0 : diffDays(p.ini, HOJE) + 1);
@@ -1424,7 +1540,7 @@ function resumoMes(m) {
 
 /* =============================================================== render */
 const $ = s => document.querySelector(s);
-const NOMES = { mes: 'Mês atual', hist: 'Dashboard anual', tab: 'Tabela consolidada', orc: 'Orçamento', arq: 'Enviar extratos' };
+const NOMES = { mes: 'Meu período', hist: 'Dashboard anual', tab: 'Tabela consolidada', orc: 'Orçamento', arq: 'Enviar extratos' };
 function setTab(t) {
   if (!NOMES[t]) t = 'mes';
   S.tab = t; store.set('tab', t);
@@ -1439,8 +1555,8 @@ function setTab(t) {
 function render() { ({ mes: renderMes, hist: renderHist, tab: renderTabela, orc: renderOrc, arq: renderArq })[S.tab](); }
 function fillMonths() {
   const sel = $('#selM');
-  sel.innerHTML = MES_LIST.slice().reverse().map(m => `<option value="${m}" title="${faixa(m)}">${MESES_L[+m.slice(5) - 1]} ${m.slice(0, 4)}${m === MES_ATUAL ? ' (atual)' : ''}</option>`).join('');
-  sel.value = S.mes;
+  sel.innerHTML = (S.ini ? `<option value="">${ddmm(S.ini)} a ${ddmm(S.fim)}</option>` : '') + MES_LIST.slice().reverse().map(m => `<option value="${m}" title="${faixa(m)}">${MESES_L[+m.slice(5) - 1]} ${m.slice(0, 4)}${m === MES_ATUAL ? ' (atual)' : ''}</option>`).join('');
+  sel.value = S.ini ? '' : S.mes;
   $('#yearSeg').innerHTML = ANOS.map(a => `<button data-ano="${a}" aria-pressed="${a === S.ano}">${a}</button>`).join('');
   document.querySelectorAll('[data-ano]').forEach(b => b.onclick = () => { S.ano = +b.dataset.ano; fillMonths(); renderHist(); });
 }
@@ -1451,7 +1567,7 @@ const vazioHTML = (t = 'Ainda não há extratos no painel') => `<div class="empt
 function avisoFaturas() {
   const itens = C.cartoes.map(c => {
     let m = prevMes(prevMes(MES_ATUAL)), fim = '';
-    for (let i = 0; i < 4; i++, m = nextMes(m)) { const f = janela(c, m).fim; if (f < HOJE && f > fim) fim = f; }
+    for (let i = 0; i < 4; i++, m = nextMes(m)) { const f = janelaFatura(c, m).fim; if (f < HOJE && f > fim) fim = f; }
     const tem = COBERTURA['Cartão ' + c.nome] || '';
     return fim && diffDays(fim, HOJE) <= 25 && tem < addDays(fim, -4) ? `cartão ${esc(c.nome)} (fechou em ${ddmm(fim)})` : '';
   }).filter(Boolean);
@@ -1470,12 +1586,14 @@ function staleNotice(c) {
 }
 
 function renderMes() {
-  const p = periodo(S.mes), c = calc(p);
-  $('#stale').innerHTML = TEM_DADOS ? (c.passado || c.futuro ? '' : avisoFaturas()) + staleNotice(c) : vazioHTML();
+  const p = pAtual(), c = calc(p);
+  pintarLinhaTempo(p);
+  $('#stale').innerHTML = TEM_DADOS ? avisoDuvidas() + (c.passado || c.futuro ? '' : avisoFaturas()) + staleNotice(c) : vazioHTML();
   const proxNome = MESES_L[+mesSeguinte(p.mes).slice(5) - 1];
   const aviso = !usaJanela() ? '' : p.cartoes.map(cw => c.corte > cw.fim
     ? `A fatura do cartão ${esc(cw.nome)} deste mês fechou em ${ddmm(cw.fim)}: compras nele a partir de ${ddmm(addDays(cw.fim, 1))} já contam em ${proxNome}.`
     : `No cartão ${esc(cw.nome)}, entram neste mês as compras até ${ddmm(cw.fim)}; a partir de ${ddmm(addDays(cw.fim, 1))} elas contam em ${proxNome}.`).join(' ');
+  if (!p.mesInteiro) heroPeriodo(p, c); else {
   // Um número principal: com quanto o mês termina, no ritmo atual e já guardando a meta.
   //   fim = entradas previstas − já gasto − o que vai cair − projeção dos variáveis − meta de guardar
   const fim = c.passado ? c.entradas - c.gasto - c.meta : c.saldoFim - c.meta;
@@ -1538,11 +1656,14 @@ function renderMes() {
       ? ['Resultado do mês', brl0(c.entradas - c.gasto), 'receita − despesa, antes de guardar', c.entradas - c.gasto >= c.meta ? 'var(--good)' : 'var(--bad)']
       : ['Ritmo dos variáveis', `${brl0(c.ritmo)}/dia`, `limite para fechar no zero: ${brl0(limiteDia)}/dia`, c.ritmo <= limiteDia ? 'var(--good)' : 'var(--bad)'],
   ].map(tile).join('');
+  }
 
   const pctTempo = c.passado ? 1 : c.diasPass / c.diasTot;
-  $('#catSub').textContent = c.passado ? `mês fechado · ${faixa(p.mes)}` : `${faixa(p.mes)} · ${Math.round(pctTempo * 100)}% do mês já passou · traço = onde você deveria estar hoje`;
+  // num intervalo livre, a meta mensal da categoria vira proporcional aos dias escolhidos
+  const fatorMeta = p.mesInteiro ? 1 : c.diasTot / 30.44;
+  $('#catSub').textContent = (c.passado ? `${p.mesInteiro ? 'mês fechado' : 'período fechado'} · ${p.faixa}` : `${p.faixa} · ${Math.round(pctTempo * 100)}% do período já passou · traço = onde você deveria estar hoje`) + (p.mesInteiro ? '' : ' · metas proporcionais aos dias');
   const rows = CATS.map(cat => {
-    const g = sum(c.gastoL.filter(l => l.cat === cat)), a = sum(c.agendL.filter(l => l.cat === cat)), m = META[cat] || 0, tot = g + a;
+    const g = sum(c.gastoL.filter(l => l.cat === cat)), a = sum(c.agendL.filter(l => l.cat === cat)), m = (META[cat] || 0) * fatorMeta, tot = g + a;
     let st;
     if (!m) st = tot > 0 ? ['neutral', 'Sem meta'] : ['neutral', '—'];
     else if (filtrado()) st = ['neutral', `${Math.round(tot / m * 100)}% da meta`];
@@ -1562,12 +1683,12 @@ function renderMes() {
   const pend = [...c.agendL.map(l => ({ d: l.data, t: l.desc, s: `${l.cat} · ${l.parcela ? 'parcela ' + l.parcela : l.conta}${l.projetado ? ' · prevista' : ''}`, v: l.valor })),
     ...c.fixasItens.map(f => ({ d: '', t: f.sub, s: `${f.cat} · conta fixa · típico ${brl0(f.tipico)} · último pagamento ${ddmm(f.ultimo)}${f.atrasado ? ` · o de ${ddmm(f.atrasado.data)} foi o do mês passado, atrasado` : ''}`, v: f.falta }))].sort((a, b) => (a.d || 'z').localeCompare(b.d || 'z'));
   $('#pending').innerHTML = pend.length ? pend.map(x => `<div class="li"><span class="d">${x.d ? ddmm(x.d) : 'previsto'}</span><span class="t">${esc(x.t)}<small>${esc(x.s)}</small></span><span class="v">${brl(x.v)}</span></div>`).join('')
-    : `<p class="muted small" style="margin:0">${c.passado ? 'Mês fechado.' : 'Nada previsto até o fim do mês.'}</p>`;
-  $('#pendSub').textContent = `até ${ddmm(p.fim)} · o que tiver data a partir de ${ddmm(addDays(p.fim, 1))} vai para ${proxNome}`;
-  $('#formSub').textContent = `despesas de ${faixa(p.mes)} por forma e conta`;
+    : `<p class="muted small" style="margin:0">${c.passado ? (p.mesInteiro ? 'Mês fechado.' : 'Período fechado.') : 'Nada previsto até o fim do período.'}</p>`;
+  $('#pendSub').textContent = p.mesInteiro ? `até ${ddmm(p.fim)} · o que tiver data a partir de ${ddmm(addDays(p.fim, 1))} vai para ${proxNome}` : `lançamentos com data entre hoje e ${ddmm(p.fim)}`;
+  $('#formSub').textContent = `despesas de ${p.faixa} por forma e conta`;
 
   const top = [...c.desp].sort((a, b) => b.valor - a.valor).slice(0, 8);
-  $('#topSub').textContent = `${c.desp.length} despesas de ${faixa(p.mes)}`;
+  $('#topSub').textContent = `${c.desp.length} despesas de ${p.faixa}`;
   $('#topList').innerHTML = top.map(l => `<div class="li"${l.id && !l.projetado ? ` data-edit="${l.id}" title="Clique para editar"` : ''}><span class="d">${ddmm(l.data)}</span><span class="t">${esc(l.desc)}<small>${esc(l.cat)} › ${esc(l.sub)}${l.sub === 'A classificar' ? ' · <span class="pill warn">classificar</span>' : ''}${l.editado ? ' · <span class="ed">✎ editado</span>' : ''}</small></span><span class="v">${brl(l.valor)}</span></div>`).join('') || '<p class="muted small">Sem despesas.</p>';
 
   const fm = {}; c.desp.forEach(l => { const k = l.kind === 'cartao' ? l.conta : `${l.forma} · ${l.conta}`; fm[k] = (fm[k] || 0) + l.valor; });
@@ -1576,21 +1697,139 @@ function renderMes() {
   $('#catPanel').parentElement.hidden = G.tipo === 'Investimento';
   $('#cmpPanel').hidden = G.tipo === 'Investimento';
   if (filtrado()) mesFiltrado(p, c);
-  const doMes = L_ALL.filter(l => l.mes === p.mes && l.data <= c.corte);
-  const pr = previsaoRenda(p.mes, c.passado);
-  $('#cmpSub').textContent = `${faixa(p.mes)}${c.passado ? '' : ` · até ${ddmm(c.corte)}`} · entradas de todos os bancos`;
+  const ateCorte = l => l.data <= c.corte, doMes = noPeriodo(p, ateCorte, L_ALL);
+  const pr = p.mesInteiro ? previsaoRenda(p.mes, c.passado) : { salFalta: 0, vaEst: 0 };
+  $('#cmpSub').textContent = `${p.faixa}${c.passado ? '' : ` · até ${ddmm(c.corte)}`} · entradas de todos os bancos`;
   renderCmp($('#cmpBody'), {
-    entradas: doMes, gastos: doMes, gastosFiltro: filtrado() && G.mov !== 'Receita' ? L.filter(l => l.mes === p.mes && l.data <= c.corte) : null,
-    div: 1, salFalta: pr.salFalta, vaEst: pr.vaEst, quando: c.passado ? 'neste mês' : 'até agora',
+    entradas: doMes, gastos: doMes, gastosFiltro: filtrado() && G.mov !== 'Receita' ? noPeriodo(p, ateCorte) : null,
+    div: 1, salFalta: pr.salFalta, vaEst: pr.vaEst, quando: c.passado ? (p.mesInteiro ? 'neste mês' : 'neste período') : 'até agora',
     notaVA: [pr.salFalta > 1 ? `Falta cair ${brl0(pr.salFalta)} de salário: uso o valor que você informou.` : '', pr.vaEst ? `O vale-alimentação deste mês ainda não apareceu; conto ${brl0(pr.vaEst)}, o valor informado. Quando ele entrar, o valor real substitui a estimativa.` : ''].filter(Boolean).join(' '),
   });
-  const col = partes(L.filter(l => l.mes === p.mes && l.data <= c.corte), mLabel(p.mes), { titulo: p.label, faixa: faixa(p.mes) });
+  const col = partes(noPeriodo(p, ateCorte), p.mesInteiro ? mLabel(p.mes) : p.faixa, { titulo: p.label, faixa: p.faixa });
   $('#compPanel').hidden = G.tipo === 'Investimento';
-  $('#compSub').textContent = `${faixa(p.mes)}${c.passado ? '' : ` · até ${ddmm(c.corte)}`} · passe o mouse nas fatias para ver o detalhe${filtrado() ? ' · filtro: ' + descFiltro() : ''}`;
+  $('#compSub').textContent = `${p.faixa}${c.passado ? '' : ` · até ${ddmm(c.corte)}`} · passe o mouse nas fatias para ver o detalhe${filtrado() ? ' · filtro: ' + descFiltro() : ''}`;
   legendaComp($('#compLeg'), [col]);
   composicaoChart($('#compChart'), [col], { grande: true });
   detalheComp($('#compDet'), col);
 }
+
+// Intervalo livre: sem previsão nem meta mensal. Mostra o que entrou, o que saiu e o resultado, cada lançamento pela sua data.
+function heroPeriodo(p, c) {
+  const r = c.recebido, g = c.gasto, res = r - g, depois = r - g - c.agendado;
+  const doCartao = sum(c.gastoL.filter(l => l.kind === 'cartao'));
+  const fora = noPeriodo(p, l => isTransf(l) && !l.entrada && l.data <= c.corte, L_ALL);
+  const entre = sum(fora.filter(l => l.sub === 'Entre minhas contas')), inv = sum(fora.filter(l => l.cat === 'Investimentos'));
+  const sinal = v => (v >= 0 ? '+' : '−') + brl0(Math.abs(v));
+  const segs = [
+    ['Saiu', g, 'var(--s-despesa)', doCartao ? `${brl0(doCartao)} no cartão · ${brl0(g - doCartao)} nas contas` : 'nas contas'],
+    ['Ainda vai cair', c.agendado, 'var(--s-despesa-2)', `com data até ${ddmm(p.fim)}`],
+    [depois >= 0 ? 'Sobra' : 'Falta', Math.abs(depois), depois >= 0 ? 'var(--s-livre)' : 'var(--bad)', 'entradas − saídas'],
+  ];
+  const total = Math.max(r, g + c.agendado, 1);
+  const deFora = [entre ? `${brl0(entre)} em transferências entre as suas contas` : '', inv ? `${brl0(inv)} guardados em investimentos ou caixinhas` : ''].filter(Boolean).join(' e ');
+  $('#hero').innerHTML = `<div class="hero-eyebrow">Período ${esc(p.label)} · ${c.diasTot} dia${c.diasTot > 1 ? 's' : ''}${c.passado ? ' · fechado' : ''}</div>
+    <div class="hero-num"><span class="lbl">Resultado do período: o que entrou menos o que saiu${c.passado ? '' : ', até hoje'}</span><b class="big ${res >= 0 ? 'pos' : 'neg'}">${sinal(res)}</b></div>
+    <div class="hero-line">Entraram <strong>${brl0(r)}</strong> e saíram <strong>${brl0(g)}</strong>.${c.agendado ? ` Há mais <strong>${brl0(c.agendado)}</strong> com data até ${ddmm(p.fim)}, ainda por cair.` : ''}</div>
+    <div class="stack" role="img" aria-label="Entradas e saídas do período">${segs.map(([k, v, col], i) => v > 0 ? `<div class="${i === 2 && depois < 0 ? 'over' : ''}" style="flex:${v / total} 1 0;background:${i === 2 && depois < 0 ? '' : col}" title="${k}: ${brl(v)}"></div>` : '').join('')}</div>
+    <div class="stack-legend">${segs.map(([k, v, col, s]) => `<div><span class="k"><i class="dot" style="background:${col}"></i>${k}</span><b class="num">${brl0(v)}</b><span class="muted">${s}</span></div>`).join('')}</div>
+    <div class="hero-note">Cada lançamento conta pela própria data: a compra no cartão, no dia da compra; o PIX e o boleto, no dia em que saíram.${deFora ? ` Ficaram de fora ${deFora}, porque não são gasto nem receita.` : ''} A previsão do salário e a meta de guardar aparecem quando você escolhe um mês inteiro.</div>`;
+  $('#tiles').innerHTML = [
+    ['Entradas', brl0(r), `${c.rec.filter(l => l.data <= c.corte).length} lançamentos`, 'var(--s-receita)'],
+    ['Saídas', brl0(g), `${brl0(c.varAte)} variáveis · ${brl0(g - c.varAte)} fixos`, 'var(--s-despesa)'],
+    ['Média por dia', `${brl0(c.diasPass ? g / c.diasPass : 0)}/dia`, `gasto em ${c.diasPass} dia${c.diasPass === 1 ? '' : 's'}`, 'var(--ink-2)'],
+    ['Resultado', brl0(res), 'entradas − saídas', res >= 0 ? 'var(--good)' : 'var(--bad)'],
+  ].map(tile).join('');
+}
+
+/* ---- linha do tempo: o intervalo de dias que o painel soma ---- */
+let TL = { min: HOJE, max: HOJE }, tlT;
+const moverMes = (iso, d) => { const m = d > 0 ? nextMes(iso.slice(0, 7)) : prevMes(iso.slice(0, 7)); return `${m}-${pad(diaEm(m, +iso.slice(8)))}`; };
+function atalhosPeriodo() {
+  const ant = prevMes(MES_ATUAL);
+  const a = [['Este mês', `${MES_ATUAL}-01`, fimDoMes(MES_ATUAL)], ['Mês passado', `${ant}-01`, fimDoMes(ant)], ['Últimos 30 dias', addDays(HOJE, -29), HOJE]];
+  // fatura aberta de cada cartão: do fechamento passado até a véspera do próximo (as setas mostram as anteriores)
+  C.cartoes.filter(c => c.fecha > 0).forEach(c => { const j = janelaFatura(c, fechaMes(c, HOJE)); a.push([`Fatura ${c.nome}`, j.ini, j.fim]); });
+  if (TEM_DADOS) a.push(['Tudo', `${PRIMEIRO_MES}-01`, fimDoMes(maxMes)]);
+  return a;
+}
+function pintarLinhaTempo(p) {
+  // trilho curto (uns 4 meses para trás e 2 para a frente) para cada passo ser um dia; ele estica se o período passar disso
+  const ini0 = [`${PRIMEIRO_MES}-01`, `${prevMes(prevMes(prevMes(MES_ATUAL)))}-01`].sort().pop();
+  TL = { min: [ini0, p.ini].sort()[0], max: [fimDoMes(nextMes(nextMes(MES_ATUAL))), p.fim].sort().pop() };
+  const n = diffDays(TL.min, TL.max), a = $('#tlA'), b = $('#tlB');
+  a.max = b.max = n; a.value = diffDays(TL.min, p.ini); b.value = diffDays(TL.min, p.fim);
+  $('#tlIni').value = p.ini; $('#tlFim').value = p.fim;
+  $('#tlMin').textContent = ddmmaa(TL.min); $('#tlMax').textContent = ddmmaa(TL.max);
+  const dias = diffDays(p.ini, p.fim) + 1;
+  $('#tlInfo').textContent = `${dias} dia${dias > 1 ? 's' : ''}${p.mesInteiro ? ' · mês inteiro, com a previsão do mês' : ''}`;
+  $('#tlChips').innerHTML = atalhosPeriodo().map(([t, i, f]) => `<button data-tl="${i}|${f}" aria-pressed="${i === p.ini && f === p.fim}" title="${ddmmaa(i)} a ${ddmmaa(f)}">${esc(t)}</button>`).join('');
+  pintarTrilho();
+}
+function pintarTrilho() {
+  const a = +$('#tlA').value, b = +$('#tlB').value, n = +$('#tlA').max || 1;
+  Object.assign($('#tlFill').style, { left: Math.min(a, b) / n * 100 + '%', width: Math.abs(b - a) / n * 100 + '%' });
+}
+function irPeriodo(ini, fim) {
+  if (!ini || !fim) return;
+  const p = intervaloDe(ini, fim);
+  if (p.mesInteiro) { S.mes = p.mes; S.ini = S.fim = ''; } else { S.ini = p.ini; S.fim = p.fim; }
+  fillMonths(); render();
+}
+['#tlA', '#tlB'].forEach(s => $(s).addEventListener('input', () => {
+  const a = +$('#tlA').value, b = +$('#tlB').value, ini = addDays(TL.min, Math.min(a, b)), fim = addDays(TL.min, Math.max(a, b));
+  $('#tlIni').value = ini; $('#tlFim').value = fim; pintarTrilho();
+  clearTimeout(tlT); tlT = setTimeout(() => irPeriodo(ini, fim), 150);
+}));
+['#tlIni', '#tlFim'].forEach(s => $(s).addEventListener('change', () => irPeriodo($('#tlIni').value, $('#tlFim').value)));
+document.addEventListener('click', e => { const b = e.target.closest('[data-tl]'); if (b) { const [i, f] = b.dataset.tl.split('|'); irPeriodo(i, f); } });
+
+/* ---- pop-up: "foi uma transferência para você mesmo?" ---- */
+// palavras da descrição, sem números (data, CPF e código mudam a cada vez): "pix*transf*maria" casa com a próxima igual
+const chaveDesc = desc => nk(desc).replace(/[^a-z\s]+/g, ' ').split(/\s+/).filter(w => w.length >= 2).slice(0, 8).join('*');
+let dvRespondidas = 0;
+function avisoDuvidas() {
+  const n = DUVIDAS.length; if (!n) return '';
+  return `<div class="notice" style="background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 35%,transparent)"><svg viewBox="0 0 24 24" style="stroke:var(--accent)"><path d="M4 8h14l-4-4M20 16H6l4 4"/></svg>
+  <div style="flex:1"><b>${n} movimentaç${n === 1 ? 'ão' : 'ões'} para você confirmar.</b> Pode ser dinheiro que foi de uma conta sua para outra ou para uma caixinha. Responder deixa receitas e despesas certas.</div><button class="btn primary" data-duvidas="1">Responder</button></div>`;
+}
+document.addEventListener('click', e => { if (e.target.closest('[data-duvidas]')) abrirDuvidas(); });
+function abrirDuvidas() { if (!DUVIDAS.length) return; dvRespondidas = 0; $('#dvd').hidden = false; mostrarDuvida(); }
+function mostrarDuvida() {
+  const l = DUVIDAS[0], sai = !l.entrada, kw = chaveDesc(l.desc);
+  $('#dvH').textContent = sai ? 'Essa saída foi uma transferência para você mesmo?' : 'Essa entrada veio de uma conta sua?';
+  $('#dvP').textContent = 'Dinheiro que passa entre as suas contas, caixinhas e reservas não é gasto nem receita. Se for o caso, ele sai das contas do painel.';
+  $('#dvItem').innerHTML = `<b>${esc(l.desc)}</b><span class="v ${sai ? 'neg' : 'pos'}">${sai ? '−' : '+'}${brl(Math.abs(l.bruto)).replace('−', '')}</span>
+    <small>${ddmmaa(l.data)} · ${esc(l.conta)} · hoje conta como ${esc(rot(l.tipo).toLowerCase())} (${esc(l.sub)}) · pergunto porque ${esc(l.duvida)}</small>`;
+  $('#dvBts').innerHTML = sai
+    ? `<button class="btn primary" data-dv="transf">Sim, foi para mim</button><button class="btn" data-dv="despesa">Não, foi uma despesa</button>`
+    : `<button class="btn primary" data-dv="transf">Sim, veio de uma conta minha</button><button class="btn" data-dv="receita">Não, é uma receita</button>`;
+  $('#dvLembrar').closest('label').hidden = kw.length < 6;
+  $('#dvKw').textContent = `Descrições com “${kw.replace(/\*/g, ' ')}”. Dá para apagar em Enviar extratos › Suas regras.`;
+  $('#dvCont').textContent = DUVIDAS.length > 1 ? `faltam ${DUVIDAS.length}` : 'última';
+  $('#dvBts').querySelectorAll('[data-dv]').forEach(b => b.onclick = () => responderDuvida(l, b.dataset.dv, $('#dvLembrar').checked && kw.length >= 6 ? kw : ''));
+  $('#dvBts button').focus();
+}
+function responderDuvida(l, resp, kw) {
+  DB.respostas[l.id] = resp;
+  const alvo = resp === 'transf' ? { cat: 'Movimentação interna', sub: 'Entre minhas contas' }
+    : resp === 'receita' ? (l.tipo === 'Receita' ? null : { cat: 'Receita', sub: 'Outras entradas' })
+    : (l.tipo === 'Despesa' ? null : { cat: 'Outros', sub: 'PIX a pessoas' });
+  if (alvo) DB.ajustes[l.id] = { ...(DB.ajustes[l.id] || {}), ...alvo, fv: 'Variável' };
+  // par (saiu de um banco, entrou no outro): a resposta vale para as duas pontas
+  if (l.par && !decidido(l.par)) {
+    DB.respostas[l.par.id] = resp === 'transf' ? 'transf' : l.par.entrada ? 'receita' : 'despesa';
+    if (resp === 'transf') DB.ajustes[l.par.id] = { ...(DB.ajustes[l.par.id] || {}), ...alvo, fv: 'Variável' };
+  }
+  // a regra vale só para o mesmo sentido (saída ou entrada), para "PIX para a Maria" não mudar o "PIX da Maria"
+  if (kw) DB.regras.push({ id: uid('r'), kw, s: l.entrada ? '+' : '-', cat: (alvo || l).cat, sub: (alvo || l).sub, fv: 'Variável', criada: HOJE });
+  dvRespondidas++; salvarDB(); rebuild();
+  if (DUVIDAS.length) mostrarDuvida(); else fecharDuvidas();
+}
+function fecharDuvidas() {
+  $('#dvd').hidden = true; atualizarTudo();
+  if (dvRespondidas) toast(`Pronto: ${dvRespondidas} resposta${dvRespondidas > 1 ? 's' : ''} salva${dvRespondidas > 1 ? 's' : ''}. Receitas e despesas recalculadas.`);
+}
+$('#dvX').onclick = $('#dvDepois').onclick = fecharDuvidas;
 
 // Gastos × entradas. As entradas vêm sempre de L_ALL (o salário cai num banco e o gasto pode sair de outro);
 // os gastos mostram o total e, com filtro, a parte do filtro.
@@ -1656,17 +1895,17 @@ function mesFiltrado(p, c) {
       ['Saldo do mês', brl0(liq), 'aplicações − resgates', liq >= 0 ? 'var(--good)' : 'var(--bad)'],
     ].map(tile).join('');
     const mov = [...c.lp].sort((a, b) => b.valor - a.valor).slice(0, 8);
-    $('#topSub').textContent = `${c.lp.length} movimentações de ${faixa(p.mes)}`;
+    $('#topSub').textContent = `${c.lp.length} movimentações de ${p.faixa}`;
     $('#topList').innerHTML = mov.map(l => `<div class="li"><span class="d">${ddmm(l.data)}</span><span class="t">${esc(l.desc)}<small>${esc(l.sub)} · ${esc(l.conta)}</small></span><span class="v">${brl(l.valor)}</span></div>`).join('') || '<p class="muted small">Sem movimentações neste mês.</p>';
     const fm = {}; c.lp.forEach(l => { const k = `${l.sub} · ${l.conta}`; fm[k] = (fm[k] || 0) + l.valor; });
     const fms = Object.entries(fm).sort((a, b) => b[1] - a[1]), fmax = Math.max(...fms.map(x => x[1]), 1);
-    $('#formSub').textContent = `movimentações de ${faixa(p.mes)} por tipo e conta`;
+    $('#formSub').textContent = `movimentações de ${p.faixa} por tipo e conta`;
     $('#formas').innerHTML = fms.map(([k, v]) => `<div class="cat-row" style="grid-template-columns:minmax(110px,190px) minmax(0,1fr) 96px"><span class="cat-name">${esc(k)}</span><div class="bar"><i style="width:${Math.max(0, v) / fmax * 100}%;background:var(--s-guardar)"></i></div><span class="cat-val">${brl0(v)}</span></div>`).join('') || '<p class="muted small">Sem movimentações.</p>';
     return;
   }
   if (G.mov === 'Receita') {
     const rec = c.rec.filter(l => l.data <= c.corte), tot = sum(rec);
-    const totAll = sum(L_ALL.filter(l => l.mes === p.mes && isRec(l) && l.data <= c.corte));
+    const totAll = sum(noPeriodo(p, l => isRec(l) && l.data <= c.corte, L_ALL));
     const grupos = {}; rec.forEach(l => { grupos[l.sub] = (grupos[l.sub] || 0) + l.valor; });
     const lista = Object.entries(grupos).sort((a, b) => b[1] - a[1]);
     $('#hero').innerHTML = `<div class="hero-eyebrow">${esc(p.label)} · de ${ddmm(p.ini)} a ${ddmm(p.fim)} · filtro: ${esc(descFiltro())}</div>
@@ -1680,7 +1919,7 @@ function mesFiltrado(p, c) {
     ].map(tile).join('');
     return;
   }
-  const totalMes = sum(L_ALL.filter(l => l.mes === p.mes && isDesp(l) && l.data <= c.corte));
+  const totalMes = sum(noPeriodo(p, l => isDesp(l) && l.data <= c.corte, L_ALL));
   const pct = totalMes ? Math.round(c.gasto / totalMes * 100) : 0;
   const ateFim = c.gasto + c.comprometido + c.projVar;
   $('#hero').innerHTML = `<div class="hero-eyebrow">${esc(p.label)} · de ${ddmm(p.ini)} a ${ddmm(p.fim)}${c.passado ? ' · fechado' : ''} · filtro: ${esc(descFiltro())}</div>
@@ -1692,7 +1931,7 @@ function mesFiltrado(p, c) {
   $('#tiles').innerHTML = [
     ['Entradas', brl0(rec), `receitas com ${descFiltro()}`, 'var(--s-receita)'],
     ['Já gastei', brl0(c.gasto), `${brl0(c.varAte)} variáveis · ${brl0(c.gasto - c.varAte)} fixos`, 'var(--s-despesa)'],
-    ['Parte do mês', pct + '%', `das despesas de ${faixa(p.mes)}`, 'var(--ink-2)'],
+    ['Parte do mês', pct + '%', `das despesas de ${p.faixa}`, 'var(--ink-2)'],
     ['Total previsto', brl0(c.passado ? c.gasto : ateFim), c.passado ? 'mês fechado' : 'se mantiver o ritmo', 'var(--s-despesa)'],
   ].map(tile).join('');
 }
@@ -2080,6 +2319,7 @@ async function receberArquivos(files) {
     if (r) {
       const ids = DB.arquivos.filter(a => !antes.has(a.id)).map(a => a.id);
       atualizarTudo();
+      if (DUVIDAS.length && !pendentes.length) setTimeout(abrirDuvidas, 500);
       toastAcao(`${r.novas} lançamento${r.novas === 1 ? '' : 's'} novo${r.novas === 1 ? '' : 's'} de ${limpos.map(it => it.nome).join(', ')}${r.dup ? ` · ${r.dup} já estava${r.dup === 1 ? '' : 'm'} no painel` : ''}`, 'Desfazer', () => {
         DB.lanc = DB.lanc.filter(l => !ids.includes(l.arq)); DB.arquivos = DB.arquivos.filter(a => !ids.includes(a.id)); salvarDB(); atualizarTudo(); toast('Envio desfeito');
       });
@@ -2222,6 +2462,7 @@ function adicionarFila() {
 $('#addArq').onclick = () => {
   const r = adicionarFila(); if (!r) return;
   atualizarTudo();
+  if (r.novas && DUVIDAS.length) setTimeout(abrirDuvidas, 500);
   toast(`${r.novas} lançamento${r.novas === 1 ? '' : 's'} novo${r.novas === 1 ? '' : 's'}${r.dup ? ` · ${r.dup} já estava${r.dup === 1 ? '' : 'm'} no painel` : ''}`);
 };
 function tirarArquivo(id) {
@@ -2246,7 +2487,7 @@ function renderArq() {
   const nCls = L_ALL.filter(l => isDesp(l) && l.sub === 'A classificar').length, nReal = L_ALL.filter(l => l.kind !== 'manual' && !l.projetado).length;
   $('#checks').innerHTML = [
     nReal ? `<div><span class="pill ${nCls / nReal > .1 ? 'warn' : 'good'}">${(100 - nCls / nReal * 100).toFixed(0)}%</span> dos lançamentos já têm categoria. ${nCls ? `${nCls} estão em “A classificar” (lista abaixo).` : ''}</div>` : '',
-    `<div><span class="pill neutral">Regra</span> Contas pelo mês civil${usaJanela() ? `; cartões pelo mês ${C.modoCartao === 'vence' ? 'do vencimento' : 'do fechamento'} da fatura` : ''}. ${C.rateio === 'abate' ? `PIX recebidos de até ${brl0(limiteRateio())} abatem o gasto; acima disso, são receita.` : 'PIX recebidos contam como receita.'} Entradas maiores que 2× a renda ficam fora da renda (Entrada extraordinária). ${C.todasFaturas ? 'O pagamento da fatura no extrato da conta é ignorado.' : 'O pagamento de fatura sem a fatura detalhada entra como gasto.'}</div>`,
+    `<div><span class="pill neutral">Regra</span> Cada lançamento conta pela própria data (no cartão, a da compra); escolha os dias na linha do tempo. PIX e TED com o seu nome completo (de você para você) são transferência entre as suas contas: não são gasto nem receita. Nome cortado ou o mesmo valor saindo de um banco e entrando em outro viram pergunta. ${C.rateio === 'abate' ? `PIX recebidos de até ${brl0(limiteRateio())} abatem o gasto; acima disso, são receita.` : 'PIX recebidos contam como receita.'} Entradas maiores que 2× a renda ficam fora da renda (Entrada extraordinária). ${C.todasFaturas ? 'O pagamento da fatura no extrato da conta é ignorado.' : 'O pagamento de fatura sem a fatura detalhada entra como gasto.'}</div>`,
     C.cartoes.some(c => c.auto) ? `<div><span class="pill warn">Cartão</span> ${C.cartoes.filter(c => c.auto).map(c => esc(c.nome)).join(', ')}: fechamento estimado a partir do arquivo. Confirme em <a href="#" id="goCards">Minhas respostas › Cartões</a>.</div>` : '',
   ].join('');
   const gc = $('#goCards'); if (gc) gc.onclick = e => { e.preventDefault(); abrirWiz(2, true); };
@@ -2313,7 +2554,7 @@ const PASSOS = [
       <div class="q"><span class="ql">O vale aparece em algum extrato que você vai enviar?</span><div class="opts">
         ${opt('vaNoExtrato', 'true', C.vaNoExtrato, 'Sim, aparece', 'Ele entra pelo extrato, com o valor real.')}
         ${opt('vaNoExtrato', 'false', C.vaNoExtrato, 'Não aparece', 'É um cartão de benefício sem extrato. O painel lança o valor acima em cada mês, marcado como estimado.')}</div></div>` },
-  { id: 'cartoes', t: 'Cartões', h: 'Seus cartões de crédito', p: 'A data de fechamento decide em que mês cada compra conta. Ela aparece no app do banco, na tela da fatura (“fecha em” ou “melhor dia de compra”).',
+  { id: 'cartoes', t: 'Cartões', h: 'Seus cartões de crédito', p: 'Cada compra conta no dia em que foi feita. O fechamento cria o atalho “Fatura” na linha do tempo e o lembrete de enviar a fatura nova. Ele aparece no app do banco, na tela da fatura (“fecha em” ou “melhor dia de compra”).',
     html: () => `<div class="q"><span class="ql">Cartões que você usa</span><div class="rows">${C.cartoes.map((c, i) => `<div class="rowi card">
         <label>Nome<input type="text" data-ci="${i}" data-cf="nome" value="${esc(c.nome)}" placeholder="Ex.: Nubank"></label>
         <label>Banco<select data-ci="${i}" data-cf="banco"><option value="">—</option>${bancosOpc(c.banco)}</select></label>
@@ -2322,11 +2563,6 @@ const PASSOS = [
         <button class="x" data-cdel="${i}" aria-label="Tirar o cartão ${esc(c.nome)}">${xSvg}</button>
         ${c.auto ? '<span class="auto">Criado a partir do arquivo, com datas estimadas. Confira o fechamento e o vencimento.</span>' : ''}</div>`).join('') || '<p class="help">Nenhum cartão ainda. Se não usa cartão de crédito, pode seguir.</p>'}</div>
         <div><button class="btn" id="cAdd">+ Adicionar cartão</button></div></div>
-      <div class="q"><span class="ql">Em que mês uma compra no cartão deve contar?</span><div class="opts">
-        ${opt('modoCartao', 'fecha', C.modoCartao, 'No mês em que a fatura fecha', 'Cada mês tem a sua fatura. É o jeito mais comum de controlar.')}
-        ${opt('modoCartao', 'vence', C.modoCartao, 'No mês em que eu pago a fatura', 'Mostra quando o dinheiro sai da conta.')}
-        ${opt('modoCartao', 'compra', C.modoCartao, 'No mês da compra', 'Ignora a fatura e usa a data da compra.')}</div>
-        <div class="ex" id="exCartao"></div></div>
       <div class="q"><span class="ql">Você vai enviar a fatura detalhada de todos os cartões?</span><div class="opts">
         ${opt('todasFaturas', 'true', C.todasFaturas, 'Sim, de todos', 'O pagamento da fatura no extrato da conta é ignorado, para não contar o gasto duas vezes.')}
         ${opt('todasFaturas', 'false', C.todasFaturas, 'Não, de algum só vejo o pagamento', 'O pagamento entra como gasto “Fatura de cartão sem detalhe”.')}</div></div>` },
@@ -2467,7 +2703,8 @@ function concluir() {
   const primeira = !W.editando;
   DB.prontos = true; salvarDB();
   pularTour = primeira; mostrarApp(); pularTour = false;
-  if (primeira) setTimeout(() => openChat(true), 600);
+  if (r.novas && DUVIDAS.length) setTimeout(abrirDuvidas, 600);
+  else if (primeira) setTimeout(() => openChat(true), 600);
   if (r.n) toast(`Painel gerado com ${r.novas} lançamento${r.novas === 1 ? '' : 's'}${r.dup ? ` (${r.dup} repetidos ficaram de fora)` : ''}`);
   else if (!W.editando) toast('Painel pronto. Envie seus extratos quando quiser.');
   else toast('Respostas salvas');
@@ -2881,7 +3118,8 @@ const RX_MENOS = /\bmenos\b|\btirando\b|\bdescontando\b|\bsubtraindo\b|\btira\b|
 function faturaDe(cards, m) {
   const tot = { ate: 0, proj: 0, fim: '', ini: '', fechada: true, nomes: [] };
   cards.forEach(c => {
-    const j = janela(c, m), lc = L_ALL.filter(l => l.kind === 'cartao' && l.cartao === c.id && l.mes === m && isDesp(l));
+    // a fatura é o ciclo que fecha no mês m (as compras contam pela data, então o ciclo vem do dia do fechamento)
+    const j = c.fecha > 0 ? janelaFatura(c, m) : periodo(m), lc = L_ALL.filter(l => l.kind === 'cartao' && l.cartao === c.id && l.data >= j.ini && l.data <= j.fim && isDesp(l));
     const ate = sum(lc.filter(l => l.data <= HOJE)), futuro = sum(lc.filter(l => l.data > HOJE));
     const dias = diffDays(j.ini, j.fim) + 1, pass = Math.max(1, Math.min(dias, diffDays(j.ini, HOJE) + 1)), aberta = HOJE <= j.fim;
     const varAte = sum(lc.filter(l => l.data <= HOJE && l.fv !== 'Fixo'));
@@ -3176,8 +3414,9 @@ function chatIntro() {
 /* ==================================================================== tour */
 const TOURS = {
   mes: [
-    { h: 'Mês atual', p: 'Esta aba responde quanto você ainda pode gastar no mês. As contas seguem o mês civil; os cartões seguem a regra que você escolheu nas respostas.' },
-    { sel: '#periodCtl', h: 'Escolha o mês', p: 'Use as setas ou a lista para ver outros meses. Cada opção mostra as datas das contas e das faturas.' },
+    { h: 'Meu período', p: 'Esta aba soma o que entrou e o que saiu nos dias que você escolher. Cada lançamento conta pela própria data; no cartão, a data da compra.' },
+    { sel: '#tl', h: 'Linha do tempo', p: 'Arraste as duas bolinhas, digite as datas ou use um atalho: este mês, mês passado, a fatura aberta de cada cartão. Os números se recalculam na hora. No mês inteiro, aparece também a previsão do salário e da meta de guardar.' },
+    { sel: '#periodCtl', h: 'Mês a mês', p: 'As setas andam um mês. Se você escolheu o ciclo da fatura, elas mostram a fatura anterior ou a próxima.' },
     { sel: '#filterBar', h: 'Filtros', p: 'Mostre só despesas ou só receitas, só um banco, ou só cartão, Pix ou investimentos. O filtro vale para todas as abas e para a exportação.' },
     { sel: '#hero', h: 'Com quanto você termina o mês', p: 'O número grande é a resposta do mês: o que sobra ou falta no fim, no ritmo atual e já guardando a sua meta. Embaixo, o limite de gasto por dia. “Como esse número é calculado” abre a conta.' },
     { sel: '#compPanel', h: 'Do que é feita a receita e a despesa', p: 'À esquerda, de onde veio o dinheiro; à direita, para onde foi, por categoria. Passe o mouse numa fatia para ver o valor.' },
@@ -3243,8 +3482,12 @@ let toastT; function toast(msg) { let t = $('.toast'); if (!t) { t = document.cr
 
 /* ====================================================================== init */
 document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
-$('#selM').onchange = e => { S.mes = e.target.value; render(); };
-const stepM = d => { const i = MES_LIST.indexOf(S.mes) + d; if (i >= 0 && i < MES_LIST.length) { S.mes = MES_LIST[i]; $('#selM').value = S.mes; render(); } };
+$('#selM').onchange = e => { if (e.target.value) irPeriodo(`${e.target.value}-01`, fimDoMes(e.target.value)); };
+// setas: um mês para trás ou para a frente; num intervalo livre (ex.: ciclo da fatura), andam o intervalo inteiro um mês
+const stepM = d => {
+  if (S.ini) return irPeriodo(moverMes(S.ini, d), moverMes(S.fim, d));
+  const i = MES_LIST.indexOf(S.mes) + d; if (i >= 0 && i < MES_LIST.length) irPeriodo(`${MES_LIST[i]}-01`, fimDoMes(MES_LIST[i]));
+};
 $('#prevM').onclick = () => stepM(-1); $('#nextM').onclick = () => stepM(1);
 document.querySelectorAll('[data-tv]').forEach(b => b.onclick = () => { S.tv = b.dataset.tv; renderTabela(); });
 let rT; addEventListener('resize', () => { clearTimeout(rT); rT = setTimeout(() => { if ($('#app').hidden) return; if (S.tab === 'mes' || S.tab === 'hist') render(); if (!$('#tour').hidden) tourShow(tourI); }, 150); });
