@@ -906,8 +906,14 @@ function normalizarDB(d) {
     // respostas ao pop-up "foi uma transferência para você mesmo?": { [idLanc]: 'transf' | 'despesa' | 'receita' }
     respostas: d.respostas && typeof d.respostas === 'object' ? d.respostas : {},
     // resumo anônimo mensal: ligado (true/false/null = ainda não respondeu), municipio (incluir ou só o estado),
-    // aparelho (código aleatório), enviados { mes: data }, adiadoEm ("agora não"), vistoEm (1º dia de uso), ultimo, apagarPendente
-    anon: Object.assign({ ligado: null, municipio: true, enviados: {} }, d.anon && typeof d.anon === 'object' ? d.anon : {}) };
+    // aparelho (código aleatório), enviados { mes: data }, pedidos (quantas vezes perguntou), ultimo,
+    // apagar (códigos antigos cujos resumos ainda precisam ser apagados no banco)
+    anon: anonDe(d.anon) };
+}
+function anonDe(a) {
+  a = Object.assign({ ligado: null, municipio: true, enviados: {}, apagar: [] }, a && typeof a === 'object' ? a : {});
+  if (a.apagarPendente) { a.apagar = [...new Set([...a.apagar, a.apagarPendente])]; delete a.apagarPendente; }  // formato antigo
+  return a;
 }
 function carregarDB() { try { const s = localStorage.getItem(DB_KEY); if (s) return normalizarDB(JSON.parse(s)); } catch { } return normalizarDB({}); }
 let DB = carregarDB();
@@ -2441,7 +2447,7 @@ function abrirLimpar() {
 }
 function limparApp() {
   // começar do zero também apaga os resumos anônimos que este aparelho enviou (precisa de internet nesse momento)
-  const A = DB.anon, ids = [A.apagarPendente, Object.keys(A.enviados || {}).length ? A.aparelho : ''].filter(Boolean);
+  const A = DB.anon, ids = [...A.apagar, Object.keys(A.enviados || {}).length ? A.aparelho : ''].filter(Boolean);
   ids.forEach(id => supa('rpc/apagar_meus_resumos', { p_aparelho: id }).catch(() => { }));
   try { localStorage.removeItem(DB_KEY); Object.keys(localStorage).filter(k => k.startsWith('mg_')).forEach(k => localStorage.removeItem(k)); } catch { }
   DB = normalizarDB({}); FILA = []; SEL.clear(); S.ini = S.fim = ''; S.mes = MES_ATUAL; S.tab = 'mes'; pedidoNesteAcesso = false;
@@ -2540,7 +2546,7 @@ let enviando = false;
 async function enviarResumos() {
   const A = DB.anon; if (enviando || !navigator.onLine) return; enviando = true;
   try {
-    if (A.apagarPendente) { const r = await supa('rpc/apagar_meus_resumos', { p_aparelho: A.apagarPendente }); if (r.ok) { delete A.apagarPendente; salvarDB(); } }
+    for (const id of [...A.apagar]) { const r = await supa('rpc/apagar_meus_resumos', { p_aparelho: id }); if (r.ok) { A.apagar = A.apagar.filter(x => x !== id); salvarDB(); } }
     if (A.ligado !== true || !A.aparelho) return;
     for (const m of mesesFechadosRecentes(3)) {
       if (A.enviados[m]) continue;
@@ -2552,16 +2558,34 @@ async function enviarResumos() {
 }
 function ligarResumo(comMunicipio) {
   const A = DB.anon; A.ligado = true; A.municipio = comMunicipio; A.aparelho ||= novoId(); A.enviados ||= {};
+  if (lugarAntes != null) lugarAntes = lugarAtual();  // ligou no questionário: o envio já sai com o lugar de agora
   salvarDB(); $('#rsModal').hidden = true;
   enviarResumos().then(() => toast(Object.keys(A.enviados).length ? 'Obrigado! Seu resumo foi criado e a cópia anônima, enviada.' : 'Obrigado! O resumo é criado quando houver um mês fechado com pelo menos 20 lançamentos.'));
+}
+// o código antigo vai para a fila de apagar e o aparelho ganha um código novo: os resumos podem ser mandados de novo
+function trocarCodigo() {
+  const A = DB.anon;
+  if (A.aparelho) A.apagar = [...new Set([...A.apagar, A.aparelho])];
+  A.aparelho = novoId(); A.enviados = {}; A.ultimo = null;
+}
+// Lugar (estado, município ou "incluir o município") mudou depois de enviar: refaz os resumos com o lugar novo.
+// O banco só aceita gravar, não alterar; então é apagar e mandar de novo, o mesmo que a pessoa faria à mão.
+// Compara o lugar de quando o questionário abriu com o de quando ele fecha (mostrarApp).
+const lugarAtual = () => JSON.stringify([C.uf || '', C.uf && C.municipio && DB.anon.municipio !== false ? C.municipio.ibge : '']);
+let lugarAntes = null;
+function conferirLugar() {
+  const A = DB.anon, antes = lugarAntes; lugarAntes = null;
+  if (antes == null || antes === lugarAtual() || !A.ligado || !Object.keys(A.enviados).length) return;
+  trocarCodigo(); salvarDB();
+  enviarResumos().then(() => toast('Lugar atualizado: o resumo anônimo foi refeito.'));
 }
 // desligar; com "apagar", o código do aparelho muda e o antigo vai para a fila de apagar (mesmo sem internet agora)
 async function desligarResumo(apagar) {
   const A = DB.anon, tinha = Object.keys(A.enviados || {}).length;
   A.ligado = false;
-  if (apagar && A.aparelho && tinha) { A.apagarPendente = A.aparelho; A.aparelho = novoId(); A.enviados = {}; A.ultimo = null; }
+  if (apagar && tinha) trocarCodigo();
   salvarDB(); await enviarResumos();
-  toast(!apagar || !tinha ? 'Envio do resumo desligado.' : A.apagarPendente ? 'Envio desligado. Os resumos serão apagados assim que houver internet.' : 'Envio desligado e resumos apagados.');
+  toast(!apagar || !tinha ? 'Envio do resumo desligado.' : A.apagar.length ? 'Envio desligado. Os resumos serão apagados assim que houver internet.' : 'Envio desligado e resumos apagados.');
   if (!$('#wiz').hidden) pintarWiz();
 }
 // pedido de permissão (pedido do João em 21/10): no 1º e no 2º acesso com dados, um por acesso (acesso = cada vez que o app
@@ -2581,8 +2605,12 @@ function abrirResumo(modo) {
     // 1º parágrafo: texto do João. 2º: o que de fato sai do aparelho (sem ele, o consentimento não seria informado)
     $('#rsH').textContent = 'Seu perfil financeiro';
     $('#rsP').innerHTML = `O app elabora um resumo das suas informações para construir seu perfil financeiro e lhe entregar um relatório que fica salvo aqui. Você permite essa criação?<br><br>Se permitir, uma <b>cópia anônima</b> desse resumo é enviada ao Meus Gastos.AI uma vez por mês, para melhorar o app: bancos que você usa, % do gasto por categoria, faixa de renda, estado e município. <b>Nunca</b> vão seu nome, endereço, as descrições dos lançamentos, valores em reais ou datas. Dá para desligar e apagar quando quiser, em Minhas respostas. <a href="#" data-priv="1">Política de privacidade</a>`;
-    $('#rsCorpo').innerHTML = `<details class="calc"><summary>Ver o resumo${p ? '' : ' (aparece quando houver um mês fechado)'}</summary>${descreverResumo(p && { ...p, aparelho: DB.anon.aparelho })}</details>`;
-    $('#rsBts').innerHTML = `<button class="btn esq" data-rs="nao">Não permito</button>${temMun ? '<button class="btn" data-rs="uf">Permito, sem o município</button>' : ''}<button class="btn primary" data-rs="sim">Sim, permito</button>`;
+    // quem ainda não disse onde mora responde aqui mesmo, para o primeiro envio já sair com o estado
+    const onde = C.uf ? '' : `<div class="q" style="margin:0 0 12px"><span class="ql">Onde você mora? <span class="muted" style="font-weight:500">(opcional)</span></span>
+      <div class="q-row"><div class="q"><label for="rsUf">Estado</label><select id="rsUf"><option value="">Prefiro não dizer</option>${UFS.map(u => `<option>${u}</option>`).join('')}</select></div>
+      <div class="q mun"><label for="rsMunIn">Município</label><input type="text" id="rsMunIn" placeholder="Escolha o estado primeiro" autocomplete="off" disabled aria-controls="rsMunLista"><div class="mun-lista" id="rsMunLista" role="listbox"></div></div></div></div>`;
+    $('#rsCorpo').innerHTML = `${onde}<details class="calc"><summary>Ver o resumo${p ? '' : ' (aparece quando houver um mês fechado)'}</summary>${descreverResumo(p && { ...p, aparelho: DB.anon.aparelho })}</details>`;
+    botoesPedido();
   } else {
     $('#rsH').textContent = DB.anon.ultimo ? 'Último resumo enviado' : 'O que seria enviado';
     $('#rsP').textContent = DB.anon.ultimo ? `Enviado em ${ddmmaa(Object.values(DB.anon.enviados).sort().pop() || HOJE)}.` : 'O resumo do último mês fechado, como iria para o banco.';
@@ -2591,6 +2619,24 @@ function abrirResumo(modo) {
   }
   $('#rsModal').hidden = false;
 }
+// "Permito, sem o município" só aparece quando há município escolhido
+const botoesPedido = () => $('#rsBts').innerHTML = `<button class="btn esq" data-rs="nao">Não permito</button>${C.uf && C.municipio ? '<button class="btn" data-rs="uf">Permito, sem o município</button>' : ''}<button class="btn primary" data-rs="sim">Sim, permito</button>`;
+$('#rsCorpo').addEventListener('change', e => {
+  if (e.target.id !== 'rsUf') return;
+  C.uf = e.target.value; C.municipio = null; salvarLogo();
+  const m = $('#rsMunIn'); m.disabled = !C.uf; m.value = ''; m.placeholder = C.uf ? 'Digite as primeiras letras' : 'Escolha o estado primeiro';
+  $('#rsMunLista').innerHTML = ''; botoesPedido(); if (C.uf) m.focus();
+});
+$('#rsCorpo').addEventListener('input', e => {
+  if (e.target.id !== 'rsMunIn') return;
+  const t = nk(e.target.value).trim(); C.municipio = munisDe(C.uf).find(m => nk(m.nome) === t) || null;
+  salvarLogo(); pintarMunicipios(e.target.value, $('#rsMunLista')); botoesPedido();
+});
+$('#rsCorpo').addEventListener('click', e => {
+  const b = e.target.closest('[data-mun]'); if (!b) return;
+  C.municipio = munisDe(C.uf).find(m => m.ibge === +b.dataset.mun) || null;
+  $('#rsMunIn').value = C.municipio ? C.municipio.nome : ''; $('#rsMunLista').innerHTML = ''; salvarLogo(); botoesPedido();
+});
 $('#rsBts').addEventListener('click', e => {
   const b = e.target.closest('[data-rs]'); if (!b) return;
   const k = b.dataset.rs;
@@ -2607,8 +2653,8 @@ function blocoResumo() {
   return `<div class="q"><span class="ql">Resumo anônimo por mês</span>
     <label class="chk"><input type="checkbox" id="rsLig" ${A.ligado ? 'checked' : ''}><span>Enviar resumo anônimo por mês<small>Bancos, % por categoria, faixa de renda, estado e município. Nada que identifique você.</small></span></label>
     <label class="chk"><input type="checkbox" id="rsMun" ${A.municipio !== false ? 'checked' : ''} ${A.ligado ? '' : 'disabled'}><span>Incluir o município<small>Desligado, vai só o estado.</small></span></label>
-    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="rsVer">${A.ultimo ? 'Ver o último resumo enviado' : 'Ver o que seria enviado'}</button>${Object.keys(A.enviados || {}).length || A.apagarPendente ? '<button class="btn" id="rsApagar" style="color:var(--bad)">Desligar e apagar o que já enviei</button>' : ''}</div>
-    <p class="help">${A.apagarPendente ? 'Há resumos esperando internet para serem apagados. ' : ''}${ultimo ? `Último envio: ${ddmmaa(ultimo)}. ` : ''}<a href="#" data-priv="1">Política de privacidade</a></p></div>`;
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="rsVer">${A.ultimo ? 'Ver o último resumo enviado' : 'Ver o que seria enviado'}</button>${Object.keys(A.enviados || {}).length || A.apagar.length ? '<button class="btn" id="rsApagar" style="color:var(--bad)">Desligar e apagar o que já enviei</button>' : ''}</div>
+    <p class="help">${A.apagar.length ? 'Há resumos esperando internet para serem apagados. ' : ''}${ultimo ? `Último envio: ${ddmmaa(ultimo)}. ` : ''}<a href="#" data-priv="1">Política de privacidade</a></p></div>`;
 }
 
 /* ============================================================ primeira visita: perguntas */
@@ -2738,8 +2784,8 @@ function lerCampo(t) {
 $('#wizBody').addEventListener('input', e => { if (e.target.type !== 'radio' && e.target.type !== 'checkbox') lerCampo(e.target); });
 $('#wizBody').addEventListener('change', e => { lerCampo(e.target); if (e.target.dataset.kt === 'money' || e.target.dataset.xf === 'valor' || e.target.dataset.meta) e.target.value = moneyIn(valorBR(e.target.value) || 0); });
 // "Onde você mora?": estado numa lista; município numa busca só com os municípios daquele estado (sem texto livre)
-function pintarMunicipios(q) {
-  const lista = $('#munLista'); if (!lista) return;
+function pintarMunicipios(q, lista = $('#munLista')) {
+  if (!lista) return;
   const t = nk(q).trim(); if (!t || !C.uf) { lista.innerHTML = ''; return; }
   const todos = munisDe(C.uf), com = todos.filter(m => nk(m.nome).startsWith(t)), meio = todos.filter(m => !nk(m.nome).startsWith(t) && nk(m.nome).includes(t));
   const achados = [...com, ...meio].slice(0, 8);
@@ -2756,7 +2802,7 @@ $('#wizBody').addEventListener('change', e => {
   else if (t.id === 'rsLig') { if (t.checked) { ligarResumo(DB.anon.municipio !== false); pintarWiz(); } else desligarResumo(false); }
   else if (t.id === 'rsMun') { DB.anon.municipio = t.checked; salvarDB(); }
 });
-document.addEventListener('click', e => { if (!e.target.closest('.mun')) { const l = $('#munLista'); if (l) l.innerHTML = ''; } });
+document.addEventListener('click', e => { if (!e.target.closest('.mun')) document.querySelectorAll('.mun-lista').forEach(l => l.innerHTML = ''); });
 $('#wizBody').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.mun) { C.municipio = munisDe(C.uf).find(m => m.ibge === +b.dataset.mun) || null; $('#qMun').value = C.municipio ? C.municipio.nome : ''; $('#munLista').innerHTML = ''; salvarLogo(); return; }
@@ -2814,6 +2860,7 @@ function concluir() {
 }
 function abrirWiz(i = 0, editando = false) {
   PASSOS = editando ? TODOS_PASSOS : TODOS_PASSOS.filter(s => PASSOS_INICIO.includes(s.id));
+  lugarAntes = lugarAtual();  // ao voltar ao painel, conferirLugar refaz os resumos se o lugar mudou
   W.editando = editando; W.max = editando ? PASSOS.length - 1 : Math.max(W.max, i);
   $('#app').hidden = true; $('#onb').hidden = false; $('#land').hidden = true; $('#wiz').hidden = false;
   $('#fab').hidden = true; $('#chat').hidden = true;
@@ -2831,6 +2878,7 @@ function mostrarApp() {
   atualizarTudo();
   $('#fab').hidden = !$('#chat').hidden;
   setTab(TEM_DADOS ? (S.tab === 'arq' && !FILA.length ? 'mes' : S.tab) : 'arq');
+  conferirLugar();
   setTimeout(() => { talvezPedirResumo(); enviarResumos(); }, 2500);
 }
 function atualizarTudo() {
