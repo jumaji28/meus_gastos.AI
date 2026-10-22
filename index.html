@@ -2463,7 +2463,12 @@ $('#lmBackup').onclick = () => $('#bkSave').click();
 // Com a permissão da pessoa, o app envia um resumo por mês fechado, sem nada que identifique alguém
 // (PROPOSTA_DADOS_ANONIMOS.md). Os lançamentos nunca saem do aparelho. O banco (Supabase, supabase/01_criar_tabela_resumos.sql)
 // só aceita gravar e apagar os resumos do próprio aparelho; ninguém consegue ler pela chave pública.
-const SUPA = { url: 'https://ffpnymathgheprtwyezv.supabase.co/rest/v1', chave: 'sb_publishable_kyPcpHUrn41n-ySvOgefFg_4EvzFUmb' };
+const SUPA = { url: 'https://ffpnymathgheprtwyezv.supabase.co/rest/v1', chave: 'sb_publishable_kyPcpHUrn41n-ySvOgefFg_4EvzFUmb',
+  // os resumos entram pela função da plataforma (anti-robô + limite + validação), não direto na tabela.
+  // O código está em supabase/functions/receber-dados; no painel do Supabase ela foi publicada com o nome "super-service"
+  funcao: 'https://ffpnymathgheprtwyezv.supabase.co/functions/v1/super-service', produto: 'meus-gastos' };
+// Cloudflare Turnstile (anti-robô, modo invisível). A site key é pública; a secreta fica só na função
+const TURNSTILE = { sitekey: '0x4AAAAAAFgBN-gOnsL9he9H', script: 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit' };
 const VERSAO_APP = '2026-10-21';
 const UFS = Object.keys(MUNICIPIOS);
 const munisDe = uf => { const s = MUNICIPIOS[uf]; return s ? s.split('|').slice(1).map(x => ({ ibge: +(s.slice(0, 2) + x.slice(0, 5)), nome: x.slice(6) })) : []; };
@@ -2541,26 +2546,49 @@ function descreverResumo(p) {
 const ultimoResumoPossivel = () => { const ms = mesesFechadosRecentes(3).reverse(); for (const m of ms) { const p = resumoDoMes(m); if (p) return p; } return null; };
 const supa = (caminho, corpo) => fetch(`${SUPA.url}/${caminho}`, { method: 'POST', body: JSON.stringify(corpo),
   headers: { apikey: SUPA.chave, Authorization: `Bearer ${SUPA.chave}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' } });
-// manda os meses fechados que faltam (até 3) e apaga o que ficou pendente. Sem internet ou com erro, tenta na próxima vez.
-let enviando = false;
-async function enviarResumos() {
-  const A = DB.anon; if (enviando || !navigator.onLine) return; enviando = true;
+// Token do anti-robô: carrega o Turnstile só na hora de enviar e cria um widget invisível descartável (cada token vale uma vez)
+let turnstileP = null;
+const carregarTurnstile = () => window.turnstile ? Promise.resolve(window.turnstile) : (turnstileP ||= new Promise((ok, erro) => {
+  const s = document.createElement('script'); s.src = TURNSTILE.script; s.async = true;
+  s.onload = () => ok(window.turnstile); s.onerror = () => { turnstileP = null; erro(new Error('turnstile')); };
+  document.head.appendChild(s);
+}));
+async function tokenAntiRobo() {
+  const ts = await carregarTurnstile(), caixa = document.createElement('div');
+  caixa.style.cssText = 'position:fixed;left:-9999px;top:0'; document.body.appendChild(caixa);
+  try {
+    return await new Promise((ok, erro) => {
+      const fim = setTimeout(() => erro(new Error('tempo')), 30000);
+      ts.render(caixa, { sitekey: TURNSTILE.sitekey, callback: t => { clearTimeout(fim); ok(t); }, 'error-callback': () => { clearTimeout(fim); erro(new Error('turnstile')); } });
+    });
+  } finally { try { ts.remove(caixa); } catch { } caixa.remove(); }
+}
+// manda os meses fechados que faltam (até 3) num pedido só e apaga o que ficou pendente. Sem internet ou com erro, tenta na próxima vez.
+// Devolve 'enviou' | 'nada' (nenhum mês pronto) | 'falhou'. Os pedidos entram em fila: um envio espera o anterior terminar.
+let filaEnvio = Promise.resolve();
+const enviarResumos = () => (filaEnvio = filaEnvio.then(enviarAgora, enviarAgora));
+async function enviarAgora() {
+  const A = DB.anon; if (!navigator.onLine) return 'falhou';
   try {
     for (const id of [...A.apagar]) { const r = await supa('rpc/apagar_meus_resumos', { p_aparelho: id }); if (r.ok) { A.apagar = A.apagar.filter(x => x !== id); salvarDB(); } }
-    if (A.ligado !== true || !A.aparelho) return;
-    for (const m of mesesFechadosRecentes(3)) {
-      if (A.enviados[m]) continue;
-      const p = resumoDoMes(m); if (!p) continue;
-      const r = await supa('resumos', p);
-      if (r.ok || r.status === 409) { A.enviados[m] = HOJE; A.ultimo = p; salvarDB(); }  // 409 = esse mês já estava lá
-    }
-  } catch { } finally { enviando = false; }
+    if (A.ligado !== true || !A.aparelho) return 'nada';
+    const pacotes = mesesFechadosRecentes(3).filter(m => !A.enviados[m]).map(resumoDoMes).filter(Boolean);
+    if (!pacotes.length) return 'nada';
+    const token = await tokenAntiRobo();
+    const r = await fetch(SUPA.funcao, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA.chave },
+      body: JSON.stringify({ produto: SUPA.produto, token, resumos: pacotes }) });
+    if (!r.ok) return 'falhou';
+    pacotes.forEach(p => A.enviados[p.mes] = HOJE); A.ultimo = pacotes[pacotes.length - 1]; salvarDB();  // repetido é ignorado pela função
+    return 'enviou';
+  } catch { return 'falhou'; }
 }
 function ligarResumo(comMunicipio) {
   const A = DB.anon; A.ligado = true; A.municipio = comMunicipio; A.aparelho ||= novoId(); A.enviados ||= {};
   if (lugarAntes != null) lugarAntes = lugarAtual();  // ligou no questionário: o envio já sai com o lugar de agora
   salvarDB(); $('#rsModal').hidden = true;
-  enviarResumos().then(() => toast(Object.keys(A.enviados).length ? 'Obrigado! Seu resumo foi criado e a cópia anônima, enviada.' : 'Obrigado! O resumo é criado quando houver um mês fechado com pelo menos 20 lançamentos.'));
+  enviarResumos().then(s => toast(s === 'enviou' || Object.keys(A.enviados).length ? 'Obrigado! Seu resumo foi criado e a cópia anônima, enviada.'
+    : s === 'falhou' ? 'Obrigado! Não consegui enviar agora; tento de novo na próxima vez que você abrir o app.'
+    : 'Obrigado! O resumo é criado quando houver um mês fechado com pelo menos 20 lançamentos.'));
 }
 // o código antigo vai para a fila de apagar e o aparelho ganha um código novo: os resumos podem ser mandados de novo
 function trocarCodigo() {
@@ -2577,7 +2605,7 @@ function conferirLugar() {
   const A = DB.anon, antes = lugarAntes; lugarAntes = null;
   if (antes == null || antes === lugarAtual() || !A.ligado || !Object.keys(A.enviados).length) return;
   trocarCodigo(); salvarDB();
-  enviarResumos().then(() => toast('Lugar atualizado: o resumo anônimo foi refeito.'));
+  enviarResumos().then(s => toast(s === 'falhou' ? 'Lugar atualizado. O resumo novo vai na próxima vez que você abrir o app.' : 'Lugar atualizado: o resumo anônimo foi refeito.'));
 }
 // desligar; com "apagar", o código do aparelho muda e o antigo vai para a fila de apagar (mesmo sem internet agora)
 async function desligarResumo(apagar) {
