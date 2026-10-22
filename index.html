@@ -19,7 +19,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
-  --bg:#F1F4F1; --surface:#FFFFFF; --surface-2:#F7F9F7; --ink:#14201B; --ink-2:#47544E; --muted:#76827C;
+  --bg:#F1F4F1; --surface:#FFFFFF; --surface-2:#F7F9F7; --ink:#14201B; --ink-2:#47544E; --muted:#66716C;
   --line:#DCE3DF; --line-2:#C5CFCA;
   --side:#103A31; --side-2:#174A3F; --side-ink:#E4EFE9; --side-muted:#9DB8AD;
   --accent:#0E7A63; --accent-ink:#FFFFFF; --accent-soft:#DDF0EA;
@@ -298,7 +298,7 @@ code,.code{font:12.5px ui-monospace,Consolas,monospace;background:var(--surface-
 .chat-foot{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line)}
 .chat-foot textarea{flex:1;resize:none;border:1px solid var(--line-2);border-radius:10px;padding:8px 10px;background:var(--surface);font:inherit;font-size:13.5px;height:42px;max-height:120px}
 /* ---------- tour */
-.tour-hole{position:fixed;z-index:40;border-radius:12px;box-shadow:0 0 0 9999px var(--scrim);pointer-events:none;transition:all .25s ease}
+.tour-hole{position:fixed;z-index:40;border-radius:12px;box-shadow:0 0 0 9999px var(--scrim);pointer-events:none;transition:top .25s ease,left .25s ease,width .25s ease,height .25s ease}
 .tour-card{position:fixed;z-index:41;width:min(360px,calc(100vw - 32px));background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.3);padding:16px 18px;display:flex;flex-direction:column;gap:8px;transition:top .25s ease,left .25s ease}
 .tour-card .k{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-weight:700}
 .tour-card h3{font-size:17px}
@@ -328,6 +328,9 @@ code,.code{font:12.5px ui-monospace,Consolas,monospace;background:var(--surface-
   .fab span.t{display:none}.fab{padding:8px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+/* foco visível nos botões que usam all:unset (o all:unset apaga o contorno global) */
+.month button:focus-visible,.chat-head button:focus-visible,.tour-x:focus-visible,.modal .xm:focus-visible,.fi .x:focus-visible,.li .x:focus-visible,.rowi .x:focus-visible,.chips button:focus-visible,thead th[data-k]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button,a,label,summary,[role=button]{touch-action:manipulation}
 /* ---------- Meus Gastos.AI: primeira visita (landing e perguntas) e envio de arquivos */
 body{margin:0}
 /* ---------- edição de lançamentos */
@@ -2138,12 +2141,15 @@ function drawLanc() {
   const foot = totais.map(([nome, n, v]) => linhaTot(nome, n, v)).join('') + (temRD ? linhaTot('Resultado (entradas − saídas)', null, res, res < 0 ? 'neg' : 'pos') : '');
   // primeira coluna: seleção. Lançamentos previstos (id 0) não são editáveis aqui
   const editaveis = shown.filter(l => l.id), todos = editaveis.length && editaveis.every(l => SEL.has(l.id));
-  $('#tbl').innerHTML = `<thead><tr><th class="sel"><input type="checkbox" id="selAll" aria-label="Selecionar todos os lançamentos da tela" ${todos ? 'checked' : ''}></th>${LAN_COLS.map(([k, n]) => `<th data-k="${k}" class="${k === 'valor' ? 'r' : ''}">${n}${F.sort[0] === k ? (F.sort[1] > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('')}</tr></thead><tbody>${shown.map(l => `<tr${l.id ? ` data-id="${l.id}"` : ''} class="${SEL.has(l.id) ? 'on' : ''}"><td class="sel">${l.id ? `<input type="checkbox" data-sel="${l.id}" ${SEL.has(l.id) ? 'checked' : ''} aria-label="Selecionar ${esc(l.desc)}">` : ''}</td>${LAN_COLS.map(([k]) => td(l, k)).join('')}</tr>`).join('')}</tbody>${rows.length ? `<tfoot>${foot}</tfoot>` : ''}`;
+  $('#tbl').innerHTML = `<thead><tr><th class="sel"><input type="checkbox" id="selAll" aria-label="Selecionar todos os lançamentos da tela" ${todos ? 'checked' : ''}></th>${LAN_COLS.map(([k, n]) => `<th data-k="${k}" class="${k === 'valor' ? 'r' : ''}" tabindex="0" aria-sort="${F.sort[0] === k ? (F.sort[1] > 0 ? 'ascending' : 'descending') : 'none'}">${n}${F.sort[0] === k ? (F.sort[1] > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('')}</tr></thead><tbody>${shown.map(l => `<tr${l.id ? ` data-id="${l.id}"` : ''} class="${SEL.has(l.id) ? 'on' : ''}"><td class="sel">${l.id ? `<input type="checkbox" data-sel="${l.id}" ${SEL.has(l.id) ? 'checked' : ''} aria-label="Selecionar ${esc(l.desc)}">` : ''}</td>${LAN_COLS.map(([k]) => td(l, k)).join('')}</tr>`).join('')}</tbody>${rows.length ? `<tfoot>${foot}</tfoot>` : ''}`;
   $('#selAll').onchange = e => { editaveis.forEach(l => e.target.checked ? SEL.add(l.id) : SEL.delete(l.id)); drawLanc(); };
   pintarSel();
   const tr = [...$('#tbl').querySelectorAll('tfoot tr')];
   let base = 0; tr.reverse().forEach(r => { r.querySelectorAll('td').forEach(c => c.style.bottom = base + 'px'); base += r.offsetHeight; });
-  $('#tbl').querySelectorAll('th[data-k]').forEach(th => th.onclick = () => { F.sort = [th.dataset.k, F.sort[0] === th.dataset.k ? -F.sort[1] : 1]; drawLanc(); });
+  $('#tbl').querySelectorAll('th[data-k]').forEach(th => {
+    th.onclick = () => { F.sort = [th.dataset.k, F.sort[0] === th.dataset.k ? -F.sort[1] : 1]; drawLanc(); $(`#tbl th[data-k="${th.dataset.k}"]`).focus(); };
+    th.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); th.onclick(); } };
+  });
 }
 const linhasResumo = () => { const cols = RES_COLS(); return [cols, ...RESUMO.filter(r => r['Lançamentos']).map(r => cols.map(k => k === 'Mês' ? r._m : (typeof r[k] === 'number' ? +r[k].toFixed(k === 'Taxa de poupança' ? 4 : 2) : r[k])))]; };
 const linhasLanc = rows => [LAN_COLS.map(c => c[1]), ...rows.map(l => LAN_COLS.map(([k]) => k === 'data' ? `${ddmm(l.data)}/${l.data.slice(0, 4)}` : k === 'tipo' ? rot(l[k]) : l[k]))];
