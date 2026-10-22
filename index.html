@@ -2444,7 +2444,7 @@ function limparApp() {
   const A = DB.anon, ids = [A.apagarPendente, Object.keys(A.enviados || {}).length ? A.aparelho : ''].filter(Boolean);
   ids.forEach(id => supa('rpc/apagar_meus_resumos', { p_aparelho: id }).catch(() => { }));
   try { localStorage.removeItem(DB_KEY); Object.keys(localStorage).filter(k => k.startsWith('mg_')).forEach(k => localStorage.removeItem(k)); } catch { }
-  DB = normalizarDB({}); FILA = []; SEL.clear(); S.ini = S.fim = ''; S.mes = MES_ATUAL; S.tab = 'mes';
+  DB = normalizarDB({}); FILA = []; SEL.clear(); S.ini = S.fim = ''; S.mes = MES_ATUAL; S.tab = 'mes'; pedidoNesteAcesso = false;
   $('#limpar').hidden = true; $('#chat').hidden = true;
   rebuild(); mostrarOnb(); toast('App limpo. Pode começar do zero.');
 }
@@ -2553,7 +2553,7 @@ async function enviarResumos() {
 function ligarResumo(comMunicipio) {
   const A = DB.anon; A.ligado = true; A.municipio = comMunicipio; A.aparelho ||= novoId(); A.enviados ||= {};
   salvarDB(); $('#rsModal').hidden = true;
-  enviarResumos().then(() => toast(Object.keys(A.enviados).length ? 'Obrigado! O resumo anônimo foi enviado.' : 'Obrigado! O resumo vai quando houver um mês fechado com dados.'));
+  enviarResumos().then(() => toast(Object.keys(A.enviados).length ? 'Obrigado! Seu resumo foi criado e a cópia anônima, enviada.' : 'Obrigado! O resumo é criado quando houver um mês fechado com pelo menos 20 lançamentos.'));
 }
 // desligar; com "apagar", o código do aparelho muda e o antigo vai para a fila de apagar (mesmo sem internet agora)
 async function desligarResumo(apagar) {
@@ -2564,21 +2564,25 @@ async function desligarResumo(apagar) {
   toast(!apagar || !tinha ? 'Envio do resumo desligado.' : A.apagarPendente ? 'Envio desligado. Os resumos serão apagados assim que houver internet.' : 'Envio desligado e resumos apagados.');
   if (!$('#wiz').hidden) pintarWiz();
 }
-// pedido de permissão: uma vez, a partir do 2º dia de uso, quando já existe um mês fechado com dados. "Agora não" espera 90 dias.
+// pedido de permissão (pedido do João em 21/10): no 1º e no 2º acesso com dados, um por acesso (acesso = cada vez que o app
+// é aberto). Depois de duas respostas "não", não pergunta mais; dá para ligar em Minhas respostas. Aceitando, já envia na hora.
+let pedidoNesteAcesso = false, tentativasPedido = 0;
 function talvezPedirResumo() {
   const A = DB.anon;
-  if (!A.vistoEm) { A.vistoEm = HOJE; salvarDB(); }
-  if (A.ligado !== null || HOJE === A.vistoEm || (A.adiadoEm && diffDays(A.adiadoEm, HOJE) < 90)) return;
-  if ($('#app').hidden || document.querySelector('.modal-bg:not([hidden])') || !$('#tour').hidden) return;
-  if (ultimoResumoPossivel()) abrirResumo('pedir');
+  if (A.ligado !== null || (A.pedidos || 0) >= 2 || pedidoNesteAcesso || !TEM_DADOS || $('#app').hidden) return;
+  // tour, dúvidas ou outra janela na tela: tenta de novo em alguns segundos
+  if (document.querySelector('.modal-bg:not([hidden])') || !$('#tour').hidden) { if (tentativasPedido++ < 40) setTimeout(talvezPedirResumo, 3000); return; }
+  pedidoNesteAcesso = true; A.pedidos = (A.pedidos || 0) + 1; salvarDB();
+  abrirResumo('pedir');
 }
 function abrirResumo(modo) {
   const p = modo === 'ver' && DB.anon.ultimo ? DB.anon.ultimo : ultimoResumoPossivel(), temMun = !!(C.uf && C.municipio);
   if (modo === 'pedir') {
-    $('#rsH').textContent = 'Ajude a melhorar o Meus Gastos.AI';
-    $('#rsP').innerHTML = `Uma vez por mês, o app pode enviar um <b>resumo anônimo</b>: quais bancos você usa, quanto do seu gasto vai para cada categoria (em %), sua faixa de renda, seu estado e seu município.<br><br><b>Nunca</b> enviamos seu nome, seu endereço, as descrições dos lançamentos, valores em reais ou datas das compras. Seus lançamentos continuam só neste aparelho. Dá para desligar e apagar o que foi enviado quando quiser, em Minhas respostas. <a href="#" data-priv="1">Política de privacidade</a>`;
-    $('#rsCorpo').innerHTML = `<details class="calc"><summary>Ver exatamente o que seria enviado</summary>${descreverResumo(p && { ...p, aparelho: DB.anon.aparelho })}</details>`;
-    $('#rsBts').innerHTML = `<button class="btn esq" data-rs="nao">Agora não</button>${temMun ? '<button class="btn" data-rs="uf">Enviar só o estado</button>' : ''}<button class="btn primary" data-rs="sim">Sim, quero ajudar</button>`;
+    // 1º parágrafo: texto do João. 2º: o que de fato sai do aparelho (sem ele, o consentimento não seria informado)
+    $('#rsH').textContent = 'Seu perfil financeiro';
+    $('#rsP').innerHTML = `O app elabora um resumo das suas informações para construir seu perfil financeiro e lhe entregar um relatório que fica salvo aqui. Você permite essa criação?<br><br>Se permitir, uma <b>cópia anônima</b> desse resumo é enviada ao Meus Gastos.AI uma vez por mês, para melhorar o app: bancos que você usa, % do gasto por categoria, faixa de renda, estado e município. <b>Nunca</b> vão seu nome, endereço, as descrições dos lançamentos, valores em reais ou datas. Dá para desligar e apagar quando quiser, em Minhas respostas. <a href="#" data-priv="1">Política de privacidade</a>`;
+    $('#rsCorpo').innerHTML = `<details class="calc"><summary>Ver o resumo${p ? '' : ' (aparece quando houver um mês fechado)'}</summary>${descreverResumo(p && { ...p, aparelho: DB.anon.aparelho })}</details>`;
+    $('#rsBts').innerHTML = `<button class="btn esq" data-rs="nao">Não permito</button>${temMun ? '<button class="btn" data-rs="uf">Permito, sem o município</button>' : ''}<button class="btn primary" data-rs="sim">Sim, permito</button>`;
   } else {
     $('#rsH').textContent = DB.anon.ultimo ? 'Último resumo enviado' : 'O que seria enviado';
     $('#rsP').textContent = DB.anon.ultimo ? `Enviado em ${ddmmaa(Object.values(DB.anon.enviados).sort().pop() || HOJE)}.` : 'O resumo do último mês fechado, como iria para o banco.';
@@ -2592,9 +2596,9 @@ $('#rsBts').addEventListener('click', e => {
   const k = b.dataset.rs;
   if (k === 'sim') ligarResumo(true);
   else if (k === 'uf') ligarResumo(false);
-  else { if (k === 'nao') { DB.anon.adiadoEm = HOJE; salvarDB(); } $('#rsModal').hidden = true; }
+  else $('#rsModal').hidden = true;  // "Não permito": o contador de pedidos já subiu; no 2º, não pergunta mais
 });
-$('#rsX').onclick = () => { if ($('#rsBts [data-rs="nao"]')) { DB.anon.adiadoEm = HOJE; salvarDB(); } $('#rsModal').hidden = true; };
+$('#rsX').onclick = () => $('#rsModal').hidden = true;
 document.addEventListener('click', e => { if (e.target.closest('[data-priv]')) { e.preventDefault(); $('#privModal').hidden = false; } });
 $('#pvX').onclick = $('#pvOk').onclick = () => $('#privModal').hidden = true;
 // bloco em Minhas respostas › Você
