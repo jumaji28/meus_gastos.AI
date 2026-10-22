@@ -382,7 +382,6 @@ body{margin:0}
 .drop p{margin:0;color:var(--ink-2);font-size:13px;max-width:46ch}
 .drop .fmts{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
 .drop-card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:14px}
-.drop-card .tag{align-self:flex-start;font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:var(--accent-ink);background:var(--accent);padding:4px 10px;border-radius:999px}
 .drop-card h2{font-size:18px}
 .howto{display:flex;flex-direction:column;gap:6px}
 .howto details{border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--surface)}
@@ -502,7 +501,7 @@ body{margin:0}
   <section class="land" id="land">
     <div>
       <h1>Jogue seus extratos.<br><em>Veja para onde vai o seu dinheiro.</em></h1>
-      <p class="lead">Envie as faturas do cartão e os extratos da conta, em CSV ou PDF. O painel organiza tudo por categoria e mostra quanto você ainda pode gastar no mês, quanto guardou e onde passou da meta.</p>
+      <p class="lead">Envie as faturas do cartão e os extratos da conta, em CSV ou PDF. O painel organiza tudo por categoria e mostra quanto entrou, quanto saiu, quanto você guardou e onde passou da meta.</p>
       <div class="land-steps">
         <div><i>1</i><b>Responda 2 perguntas</b>seu nome e, se quiser, a renda. Leva 1 minuto.</div>
         <div><i>2</i><b>Jogue os arquivos</b>CSV, OFX, Excel ou PDF de qualquer banco.</div>
@@ -517,7 +516,6 @@ body{margin:0}
         <span>Seus arquivos são lidos neste aparelho e os lançamentos ficam só nele. Se você permitir, só um resumo anônimo por mês é enviado. <a href="#" data-priv="1">Privacidade</a></span></div>
     </div>
     <div class="drop-card">
-      <span class="tag">Comece por aqui</span>
       <div class="drop" data-drop tabindex="0" role="button" aria-label="Escolher os arquivos do banco">
         <svg class="ic" viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>
         <b>Jogue aqui as planilhas e PDFs do seu banco</b>
@@ -1130,7 +1128,7 @@ function lerTabela(rows, nome) {
   const iCred = ix(h => /^(credito|entrada|entradas|creditos)\b/.test(h)), iDeb = ix(h => /^(debito|saida|saidas|debitos)\b/.test(h));
   const iDC = ix(h => /^(d\/c|dc|c\/d|natureza|tipo de lancamento|tipo)$/.test(h));
   const iDescs = H.map((h, i) => /title|descri|historico|lancamento|estabelecimento|memo|detalhe|favorecido|complemento|^nome|beneficiario|origem/.test(h) && !/^data/.test(h) && i !== iVal && i !== iData ? i : -1).filter(i => i >= 0);
-  if (iData < 0 || (iVal < 0 && iCred < 0 && iDeb < 0)) throw new Error('Não achei as colunas de data e valor neste arquivo.');
+  if (iData < 0 || (iVal < 0 && iCred < 0 && iDeb < 0)) throw new Error('Não achei as colunas de data e valor neste arquivo. Confira se é o extrato ou a fatura do banco, ou baixe de novo em CSV ou OFX.');
   const nubFatura = H.includes('title') && H.includes('amount');
   const nubConta = H.includes('identificador') && H.includes('valor');
   let cartao = nubFatura || /fatura|cartao|card|credit|mastercard|visa|elo /.test(nm);
@@ -2165,7 +2163,7 @@ function baixarDireto(filename, data) {
 async function salvar(filename, data) {
   if (!downloads) return baixarDireto(filename, data);
   try { await downloads.save({ filename, data }); toast('Baixado em Downloads: ' + filename); return true; }
-  catch (e) { if (e && e.code === 'declined') return false; toast(e && e.code === 'rate_limited' ? 'Já existe um download esperando sua confirmação.' : 'Não foi possível salvar o arquivo aqui.'); return false; }
+  catch (e) { if (e && e.code === 'declined') return false; toast(e && e.code === 'rate_limited' ? 'Já existe um download esperando sua confirmação.' : 'Não consegui salvar o arquivo aqui. Abra o app no navegador e tente de novo.'); return false; }
 }
 $('#expCsv').onclick = async () => {
   const t = linhasLanc(lancFiltrados());
@@ -2278,7 +2276,7 @@ async function processar(it, senha) {
     it.status = 'ok';
   } catch (e) {
     if (e && e.name === 'PasswordException') { it.status = 'senha'; it.erro = e.code === 2 ? 'Senha incorreta. Tente de novo.' : ''; }
-    else { it.status = 'erro'; it.erro = (e && e.message) || 'Não consegui ler este arquivo.'; }
+    else { it.status = 'erro'; it.erro = (e && e.message) || 'Não consegui ler este arquivo. Baixe de novo no app do banco, em CSV, OFX, Excel ou PDF.'; }
   }
 }
 function filaHTML() {
@@ -2436,7 +2434,7 @@ async function restaurar(f) {
   if (!f) return;
   let d;
   try { d = JSON.parse(decodificar(await f.arrayBuffer())); } catch { d = null; }
-  if (!d || !Array.isArray(d.lanc) || !d.cfg) { toast('Esse arquivo .json não é um backup do Meus Gastos.AI.'); return; }
+  if (!d || !Array.isArray(d.lanc) || !d.cfg) { toast('Esse arquivo .json não é um backup do Meus Gastos.AI. Use o arquivo do botão "Baixar backup".'); return; }
   const temDados = DB.lanc.length || DB.prontos;
   if (temDados && !confirm(`Restaurar o backup${d.cfg.nome ? ` de ${d.cfg.nome}` : ''} com ${d.lanc.length.toLocaleString('pt-BR')} lançamentos? Os dados atuais deste aparelho (${DB.lanc.length.toLocaleString('pt-BR')} lançamentos) serão substituídos.`)) return;
   DB = normalizarDB(d); DB.prontos = true; FILA = []; S.ini = S.fim = ''; salvarDB();
@@ -2699,7 +2697,7 @@ const moneyF = (k, v, id, lbl) => `<div class="money"><span>R$</span><input type
 const TODOS_PASSOS = [
   { id: 'voce', t: 'Você', h: 'Primeiro, sobre você', p: 'O nome completo serve para reconhecer o dinheiro que vai de uma conta sua para outra: isso não é gasto nem receita.',
     html: () => `<div class="q-row">
-      <div class="q"><label for="qNome">Como você quer ser chamado?</label><input type="text" id="qNome" data-k="nome" value="${esc(C.nome)}" placeholder="Ex.: Ana" autocomplete="given-name"></div>
+      <div class="q"><label for="qNome">Como quer que o app chame você?</label><input type="text" id="qNome" data-k="nome" value="${esc(C.nome)}" placeholder="Ex.: Ana" autocomplete="given-name"></div>
       <div class="q"><label for="qTit">Seu nome completo, como aparece no banco</label><input type="text" id="qTit" data-k="titular" value="${esc(C.titular)}" placeholder="Ex.: Ana Paula Souza" autocomplete="name"><p class="help">Um PIX de “Ana Paula Souza” para outra conta sua não entra como gasto.</p></div></div>
       <div class="q"><span class="ql">Onde você mora? <span class="muted" style="font-weight:500">(opcional)</span></span>
         <div class="q-row">
@@ -3007,7 +3005,7 @@ async function receberCompartilhados() {
   if (q.get('compartilhado') === 'erro' || !('caches' in window)) { toast('Não consegui receber o arquivo. Tente pelo botão Enviar arquivo.'); return; }
   const cache = await caches.open('mg-compartilhados'), reqs = await cache.keys(), files = [];
   for (const r of reqs) { const res = await cache.match(r); files.push(new File([await res.blob()], decodeURIComponent(res.headers.get('X-Nome') || 'arquivo'), { type: res.headers.get('Content-Type') || '' })); await cache.delete(r); }
-  if (files.length) receberArquivos(files); else toast('Nenhum arquivo chegou pelo compartilhamento.');
+  if (files.length) receberArquivos(files); else toast('Nenhum arquivo chegou pelo compartilhamento. Tente de novo ou use o botão Enviar arquivo.');
 }
 // lembretes: um evento mensal por cartão, no dia em que a fatura fecha, às 9h, com o link do painel
 function eventosLembrete() {
