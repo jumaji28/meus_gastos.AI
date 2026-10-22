@@ -518,8 +518,8 @@ body{margin:0}
       <div class="drop" data-drop tabindex="0" role="button" aria-label="Escolher os arquivos do banco">
         <svg class="ic" viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>
         <b>Jogue aqui as planilhas e PDFs do seu banco</b>
-        <p>Arraste os arquivos para este quadro ou clique para escolher. Pode mandar vários de uma vez, de bancos diferentes.</p>
-        <div class="fmts"><span class="pill neutral">CSV</span><span class="pill neutral">OFX</span><span class="pill neutral">Excel</span><span class="pill neutral">PDF</span></div>
+        <p>Arraste os arquivos para este quadro ou clique para escolher. Pode mandar vários de uma vez, de bancos diferentes. Já tem um backup do app? Jogue o arquivo .json aqui e tudo volta.</p>
+        <div class="fmts"><span class="pill neutral">CSV</span><span class="pill neutral">OFX</span><span class="pill neutral">Excel</span><span class="pill neutral">PDF</span><span class="pill neutral">Backup .json</span></div>
       </div>
       <div class="fila" data-fila></div>
       <div><h2 style="margin-bottom:8px">Como baixar do seu banco</h2><div class="howto" data-howto></div></div>
@@ -714,7 +714,7 @@ body{margin:0}
   </main>
 </div>
 
-<input type="file" id="fileIn" multiple hidden accept=".csv,.txt,.ofx,.qfx,.xlsx,.xls,.pdf">
+<input type="file" id="fileIn" multiple hidden accept=".csv,.txt,.ofx,.qfx,.xlsx,.xls,.pdf,.json,application/json">
 <input type="file" id="bkIn" hidden accept=".json,application/json">
 <datalist id="subsList"></datalist>
 
@@ -2205,7 +2205,14 @@ function escolherCartao(it) {
   return '';
 }
 async function receberArquivos(files) {
-  const lista = [...files].filter(f => f && f.size);
+  let lista = [...files].filter(f => f && f.size);
+  // backup (.json): restaura em vez de ler como extrato. Vale no quadro da tela inicial, no "Enviar arquivo" e no Compartilhar
+  const backups = lista.filter(f => /\.json$/i.test(f.name) || f.type === 'application/json');
+  if (backups.length) {
+    lista = lista.filter(f => !backups.includes(f));
+    if (backups.length > 1) toast('Mande um backup por vez. Usei o primeiro.');
+    await restaurar(backups[0]);
+  }
   if (!lista.length) return;
   for (const f of lista) FILA.push({ id: uid('f'), nome: f.name, file: f, status: 'lendo' });
   pintarFilas();
@@ -2411,14 +2418,18 @@ function renderArq() {
 }
 $('#bkSave').onclick = () => salvar(`Meus_Gastos_backup_${HOJE}.json`, JSON.stringify(DB));
 $('#bkLoad').onclick = () => $('#bkIn').click();
+// Restaura um backup (.json baixado em "Baixar backup"). Substitui os dados deste aparelho; só pergunta se já houver dados.
+// Funciona também na tela inicial: o app abre direto no painel, sem o questionário.
 async function restaurar(f) {
   if (!f) return;
-  try {
-    const d = JSON.parse(await f.text());
-    if (!d || !Array.isArray(d.lanc) || !d.cfg) throw new Error();
-    if (!confirm(`Restaurar o backup com ${d.lanc.length} lançamentos? Os dados atuais deste navegador serão substituídos.`)) return;
-    DB = normalizarDB(d); DB.prontos = true; salvarDB(); atualizarTudo(); toast('Backup restaurado');
-  } catch { toast('Esse arquivo não é um backup do Meus Gastos.AI.'); }
+  let d;
+  try { d = JSON.parse(decodificar(await f.arrayBuffer())); } catch { d = null; }
+  if (!d || !Array.isArray(d.lanc) || !d.cfg) { toast('Esse arquivo .json não é um backup do Meus Gastos.AI.'); return; }
+  const temDados = DB.lanc.length || DB.prontos;
+  if (temDados && !confirm(`Restaurar o backup${d.cfg.nome ? ` de ${d.cfg.nome}` : ''} com ${d.lanc.length.toLocaleString('pt-BR')} lançamentos? Os dados atuais deste aparelho (${DB.lanc.length.toLocaleString('pt-BR')} lançamentos) serão substituídos.`)) return;
+  DB = normalizarDB(d); DB.prontos = true; FILA = []; S.ini = S.fim = ''; salvarDB();
+  if ($('#app').hidden) { S.tab = 'mes'; mostrarApp(); } else atualizarTudo();
+  toast(`Backup restaurado: ${DB.lanc.length.toLocaleString('pt-BR')} lançamentos de ${DB.arquivos.length} arquivo${DB.arquivos.length === 1 ? '' : 's'}.`);
 }
 // "Limpar app" (menu) e "Apagar tudo e recomeçar" (Seus dados): confirmação com a opção de baixar o backup antes
 function abrirLimpar() {
