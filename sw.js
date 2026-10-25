@@ -3,8 +3,10 @@
       "mg-compartilhados" e abre o app em /?compartilhado=1, que importa e apaga.
    2) Deixa o app abrir sem internet: a página vem sempre da rede quando há conexão (pega a versão nova)
       e do cache quando não há. Bibliotecas do cdnjs e fontes ficam em cache depois do primeiro uso.
+   3) Mostra os avisos (Web Push) mandados pela função "avisos" do Supabase, para quem ativou em Enviar extratos › Seus dados.
+      Tocar no aviso abre o app no endereço que veio junto (ex.: /?novo=1 abre o "Novo lançamento").
    Os extratos nunca saem do aparelho: tudo acontece aqui dentro. */
-const VERSAO = 'mg-v2';
+const VERSAO = 'mg-v3';
 const ESTATICOS = ['/', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -49,4 +51,20 @@ self.addEventListener('fetch', e => {
     return;
   }
   if (url.origin === location.origin) e.respondWith(fetch(req).catch(() => caches.match(req)));
+});
+
+self.addEventListener('push', e => {
+  let d = {}; try { d = e.data ? e.data.json() : {}; } catch { d = { texto: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.titulo || 'Meus Gastos', {
+    body: d.texto || '', icon: '/icon-192.png', badge: '/icon-192.png', lang: 'pt-BR', data: { url: d.url || '/' },
+  }));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  // só endereços do próprio app
+  const alvo = new URL(/^\/(?!\/)/.test(e.notification.data && e.notification.data.url) ? e.notification.data.url : '/', location.origin).href;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(janelas => {
+    const j = janelas.find(c => new URL(c.url).origin === location.origin);
+    return j ? j.navigate(alvo).then(c => (c || j).focus()) : self.clients.openWindow(alvo);
+  }));
 });

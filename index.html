@@ -697,6 +697,11 @@ body{margin:0}
               <p class="small" style="margin:0 0 10px;color:var(--ink-2)">Cria no calendário do celular um aviso todo mês, no dia em que cada cartão fecha, com o link do painel. Tocou no aviso, é só enviar a fatura.</p>
               <div class="bk" id="lembBtns"></div>
             </div>
+            <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)" id="avisos">
+              <h3 style="font-size:15px;margin-bottom:4px">Avisos no celular</h3>
+              <p class="small" style="margin:0 0 10px;color:var(--ink-2)">De vez em quando, um lembrete para anotar os gastos ou enviar a fatura. Pode desligar quando quiser.</p>
+              <div class="bk" id="avBtns"></div>
+            </div>
           </div>
         </div>
         <div class="panel">
@@ -808,6 +813,7 @@ body{margin:0}
     <li><b>Seus arquivos e lançamentos</b> são lidos e guardados só no seu aparelho. Não temos acesso a eles.</li>
     <li><b>Resumo anônimo (opcional):</b> se você permitir, o app envia uma vez por mês um resumo com bancos usados, % do gasto por categoria, forma de pagamento e algumas marcas conhecidas, faixa de renda, estado e município que você informou, resultado do mês (sobrou ou faltou) e um código aleatório do aparelho. Nunca seu nome, endereço, CEP, localização do aparelho, valores, datas ou as descrições dos lançamentos.</li>
     <li><b>Para que usamos:</b> entender como as pessoas usam o app e mostrar estatísticas gerais, sempre de grupos com pelo menos 20 pessoas. Município com menos de 20 pessoas entra só como “outros municípios” do estado. Não vendemos dados individuais.</li>
+    <li><b>Avisos no celular (opcional):</b> se você ativar, guardamos só o endereço técnico de avisos que o seu navegador cria, sem nome, e-mail ou dado financeiro. Serve apenas para mandar lembretes do app. Ao desligar, o endereço é apagado.</li>
     <li><b>Onde fica:</b> num banco de dados no Brasil (Supabase, região São Paulo).</li>
     <li><b>Seus direitos (LGPD):</b> desligar o envio e apagar o que foi enviado a qualquer momento, em Minhas respostas. Dúvidas ou pedidos: fale com a gente pelo grupo de testadores.</li>
   </ol>
@@ -1642,7 +1648,7 @@ function staleNotice(c) {
 function renderMes() {
   const p = pAtual(), c = calc(p);
   pintarLinhaTempo(p);
-  $('#stale').innerHTML = TEM_DADOS ? avisoDuvidas() + avisoClassificar() + (c.passado || c.futuro ? '' : avisoFaturas()) + staleNotice(c) : vazioHTML();
+  $('#stale').innerHTML = TEM_DADOS ? avisoDuvidas() + avisoClassificar() + (c.passado || c.futuro ? '' : avisoFaturas()) + staleNotice(c) + conviteAvisos() : vazioHTML();
   const proxNome = MESES_L[+mesSeguinte(p.mes).slice(5) - 1];
   const aviso = !usaJanela() ? '' : p.cartoes.map(cw => c.corte > cw.fim
     ? `A fatura do cartão ${esc(cw.nome)} deste mês fechou em ${ddmm(cw.fim)}: compras nele a partir de ${ddmm(addDays(cw.fim, 1))} já contam em ${proxNome}.`
@@ -2450,7 +2456,7 @@ function renderArq() {
   $('#regrasList').innerHTML = DB.regras.slice().reverse().map(r => `<div class="li" style="grid-template-columns:minmax(0,1fr) auto auto"><span class="t"><span class="code">${esc(r.kw)}</span> → ${esc(r.cat)} › ${esc(r.sub)}<small>${esc(r.fv || 'Variável')}${r.criada ? ' · criada em ' + ddmmaa(r.criada) : ''}</small></span><span class="v small muted">${L_ALL.filter(l => (l.obs || '').includes('sua regra: ' + r.kw)).length} lanç.</span><button class="x" data-tirregra="${r.id}" aria-label="Apagar regra ${esc(r.kw)}">${xSvg}</button></div>`).join('') || '<p class="muted small" style="margin:0">Você ainda não criou regras. Use “Salvar regra” na lista acima.</p>';
   if (DB.divisoes.length) $('#regrasList').insertAdjacentHTML('afterbegin', DB.divisoes.slice().reverse().map(d => `<div class="li" style="grid-template-columns:minmax(0,1fr) auto"><span class="t"><span class="code">${esc(d.kw)}</span> → sua parte ${d.parte}%<small>divisão de gasto${d.criada ? ' · criada em ' + ddmmaa(d.criada) : ''}</small></span><button class="x" data-tirdiv="${d.id}" aria-label="Apagar divisão ${esc(d.kw)}">${xSvg}</button></div>`).join(''));
   document.querySelectorAll('[data-tirdiv]').forEach(b => b.onclick = () => { DB.divisoes = DB.divisoes.filter(d => d.id !== b.dataset.tirdiv); salvarDB(); atualizarTudo(); toast('Divisão apagada'); });
-  pintarLembretes();
+  pintarLembretes(); pintarAvisos();
   pintarFilas();
 }
 $('#bkSave').onclick = () => salvar(`Meus_Gastos_backup_${HOJE}.json`, JSON.stringify(DB));
@@ -2480,6 +2486,7 @@ function limparApp() {
   // começar do zero também apaga os resumos anônimos que este aparelho enviou (precisa de internet nesse momento)
   const A = DB.anon, ids = [...A.apagar, Object.keys(A.enviados || {}).length ? A.aparelho : ''].filter(Boolean);
   ids.forEach(id => supa('rpc/apagar_meus_resumos', { p_aparelho: id }).catch(() => { }));
+  desligarAvisos();  // começar do zero também desliga os avisos deste aparelho
   try { localStorage.removeItem(DB_KEY); Object.keys(localStorage).filter(k => k.startsWith('mg_')).forEach(k => localStorage.removeItem(k)); } catch { }
   DB = normalizarDB({}); FILA = []; SEL.clear(); S.ini = S.fim = ''; S.mes = MES_ATUAL; S.tab = 'mes'; pedidoNesteAcesso = false;
   $('#limpar').hidden = true; $('#chat').hidden = true;
@@ -2500,7 +2507,11 @@ const SUPA = { url: 'https://ffpnymathgheprtwyezv.supabase.co/rest/v1', chave: '
   funcao: 'https://ffpnymathgheprtwyezv.supabase.co/functions/v1/super-service', produto: 'meus-gastos' };
 // Cloudflare Turnstile (anti-robô, modo invisível). A site key é pública; a secreta fica só na função
 const TURNSTILE = { sitekey: '0x4AAAAAAFgBN-gOnsL9he9H', script: 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit' };
-const VERSAO_APP = '2026-10-21';
+// Avisos no celular (Web Push): a chave pública VAPID pode ficar no site; a privada fica só nos segredos da função "avisos"
+// (supabase/functions/avisos). Gerada por backup/scripts/gerar_chaves_avisos.py
+const AVISOS = { funcao: 'https://ffpnymathgheprtwyezv.supabase.co/functions/v1/avisos',
+  vapid: 'BFT81OdrFC4zOkiGvSGQ9p9Zfiw50lsqPem6c9jEM-voKHKpT6ByjcaiGsZYKT0eReA8qGrqhpZz9w_RCg4OLEc' };
+const VERSAO_APP = '2026-10-25';
 const UFS = Object.keys(MUNICIPIOS);
 const munisDe = uf => { const s = MUNICIPIOS[uf]; return s ? s.split('|').slice(1).map(x => ({ ibge: +(s.slice(0, 2) + x.slice(0, 5)), nome: x.slice(6) })) : []; };
 const FAIXAS_RENDA = [[2000, 'ate-2 mil'], [3000, '2-3 mil'], [5000, '3-5 mil'], [8000, '5-8 mil'], [12000, '8-12 mil'], [20000, '12-20 mil'], [Infinity, '20+ mil']];
@@ -3060,6 +3071,68 @@ function pintarLembretes() {
     ev.map(e => `<a class="btn" href="${g(e)}" target="_blank" rel="noopener">Google Agenda: ${esc(e.titulo.replace(' no Meus Gastos', '').replace('Enviar ', ''))}</a>`).join('');
   $('#icsBtn').onclick = baixarIcs;
 }
+
+/* ============================================================ avisos no celular (Web Push)
+   A pessoa ativa em Enviar extratos › Seus dados (ou no convite de Meu período). O navegador cria um endereço de avisos,
+   que vai para a função "avisos" do Supabase (com o anti-robô). O João manda o aviso pelo enviar_aviso.ps1, e o sw.js mostra.
+   O estado vem sempre do navegador (pushManager), não do DB: um backup restaurado em outro aparelho não leva o endereço.
+   iPhone: só funciona com o app instalado na tela inicial (iOS 16.4 ou mais novo). */
+const avisosSuporte = () => NO_SITE && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const chaveVapid = s => { const b = atob((s + '='.repeat((4 - s.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(b, c => c.charCodeAt(0)); };
+async function inscricaoAtual() {
+  if (!avisosSuporte()) return null;
+  try { const reg = await navigator.serviceWorker.getRegistration(); return reg ? await reg.pushManager.getSubscription() : null; } catch { return null; }
+}
+async function pintarAvisos() {
+  const el = $('#avBtns'); if (!el) return;
+  if (!avisosSuporte()) {
+    el.innerHTML = `<p class="small muted" style="margin:0">${!NO_SITE ? 'Os avisos funcionam no app pelo endereço do site.'
+      : IOS && !INSTALADO ? 'No iPhone, os avisos só funcionam com o app instalado na tela inicial. Instale e abra por lá.'
+      : 'Este navegador não recebe avisos. Tente pelo Chrome, Edge, Firefox ou Safari atualizados.'}</p>${IOS && !INSTALADO && NO_SITE ? '<button class="btn" data-instalar="1">Como instalar</button>' : ''}`;
+    return;
+  }
+  const sub = await inscricaoAtual();
+  if (sub) el.innerHTML = '<span class="pill good">Avisos ligados</span><button class="btn" id="avOff">Desligar avisos</button>';
+  else if (Notification.permission === 'denied') el.innerHTML = '<p class="small muted" style="margin:0">Os avisos estão bloqueados para este site. Libere nas configurações do navegador (Notificações) e volte aqui.</p>';
+  else el.innerHTML = '<button class="btn primary" id="avOn">Ativar avisos</button>';
+  if ($('#avOn')) $('#avOn').onclick = ativarAvisos;
+  if ($('#avOff')) $('#avOff').onclick = () => desligarAvisos().then(ok => { toast(ok ? 'Avisos desligados.' : 'Avisos desligados neste aparelho. O endereço é apagado do servidor quando houver internet.'); pintarAvisos(); });
+}
+document.addEventListener('click', e => { if (e.target.closest('[data-instalar]')) instrucoes(); });
+async function ativarAvisos() {
+  const b = $('#avOn'); if (b) { b.disabled = true; b.textContent = 'Ativando…'; }
+  try {
+    // o pedido de permissão do navegador só aparece depois de um toque da pessoa
+    if (await Notification.requestPermission() !== 'granted') { toast('Sem permissão, o app não consegue mandar avisos. Dá para liberar depois nas configurações do navegador.'); return; }
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: chaveVapid(AVISOS.vapid) });
+    const token = await tokenAntiRobo();
+    const r = await fetch(AVISOS.funcao, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA.chave },
+      body: JSON.stringify({ acao: 'inscrever', produto: SUPA.produto, token, inscricao: sub.toJSON() }) });
+    if (!r.ok) { await sub.unsubscribe(); toast('Não consegui ativar agora. Confira a internet e tente de novo.'); return; }
+    store.set('avisosConvite', 'feito');
+    toast('Pronto! Os avisos do Meus Gastos vão chegar neste aparelho.');
+  } catch { toast('Não consegui ativar agora. Confira a internet e tente de novo.'); }
+  finally { pintarAvisos(); if (S.tab === 'mes' && !$('#app').hidden) renderMes(); }
+}
+// desliga no navegador e apaga o endereço no servidor; devolve false se o servidor não respondeu
+async function desligarAvisos() {
+  const sub = await inscricaoAtual(); if (!sub) return true;
+  const endpoint = sub.endpoint; await sub.unsubscribe().catch(() => { });
+  try { return (await fetch(AVISOS.funcao, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA.chave }, body: JSON.stringify({ acao: 'cancelar', endpoint }) })).ok; }
+  catch { return false; }
+}
+// convite em Meu período: uma vez, para quem já tem lançamentos, pode receber avisos e ainda não respondeu
+function conviteAvisos() {
+  if (!TEM_DADOS || !avisosSuporte() || Notification.permission !== 'default' || store.get('avisosConvite')) return '';
+  if (DB.anon.ligado === null && (DB.anon.pedidos || 0) < 2) return '';  // um pedido por vez: primeiro o do resumo anônimo
+  return `<div class="notice" style="flex-wrap:wrap;background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 35%,transparent)"><svg viewBox="0 0 24 24" style="stroke:var(--accent)"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+  <div style="flex:1 1 220px"><b>Quer um lembrete no celular?</b> De vez em quando, um aviso para anotar os gastos ou enviar a fatura.</div><button class="btn primary" data-avisos="sim">Ativar avisos</button><button class="btn" data-avisos="nao">Agora não</button></div>`;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-avisos]'); if (!b) return;
+  if (b.dataset.avisos === 'sim') ativarAvisos(); else { store.set('avisosConvite', 'nao'); renderMes(); }
+});
 
 /* ============================================================ edição de lançamentos */
 // Selecione uma ou várias linhas na Tabela › Lançamentos (ou clique num gasto do mês) e mude valor, categoria
@@ -3755,6 +3828,12 @@ S.tab = store.get('tab', 'mes');
 rebuild();
 if (DB.prontos) mostrarApp(); else mostrarOnb();
 receberCompartilhados();
+// aviso no celular: /?novo=1 abre direto o "Novo lançamento"; /?aba=arq abre uma aba (mes, hist, tab, arq)
+{ const q = new URLSearchParams(location.search), aba = q.get('aba');
+  if (q.has('novo') || aba) {
+    history.replaceState(null, '', location.pathname);
+    if (DB.prontos) { $('#tour').hidden = true; if (q.has('novo')) { setTab('tab'); abrirNovo(); } else if (['mes', 'hist', 'tab', 'arq'].includes(aba)) setTab(aba); }
+  } }
 (async () => {
   try { [sample, downloads] = await Promise.all([window.claude?.use?.('sample') ?? null, window.claude?.use?.('downloads') ?? null]); } catch { }
   $('#chatState').textContent = sample ? 'Responde com o Claude, a partir dos seus lançamentos' : 'Responde aqui no navegador, com os seus lançamentos';
