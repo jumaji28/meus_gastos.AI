@@ -3099,21 +3099,40 @@ async function pintarAvisos() {
   if ($('#avOff')) $('#avOff').onclick = () => desligarAvisos().then(ok => { toast(ok ? 'Avisos desligados.' : 'Avisos desligados neste aparelho. O endereço é apagado do servidor quando houver internet.'); pintarAvisos(); });
 }
 document.addEventListener('click', e => { if (e.target.closest('[data-instalar]')) instrucoes(); });
+// manda o endereço de avisos para a função. Só vale a resposta { ok: true } da nossa função (um 200 qualquer não basta)
+async function registrarAvisos(sub) {
+  const token = await tokenAntiRobo();
+  const r = await fetch(AVISOS.funcao, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA.chave },
+    body: JSON.stringify({ acao: 'inscrever', produto: SUPA.produto, token, inscricao: sub.toJSON() }) });
+  const ok = r.ok && (await r.json().catch(() => ({}))).ok === true;
+  if (ok) store.set('avisosSync', { e: sub.endpoint, em: HOJE });
+  return ok;
+}
 async function ativarAvisos() {
   const b = $('#avOn'); if (b) { b.disabled = true; b.textContent = 'Ativando…'; }
+  let sub = null;
   try {
     // o pedido de permissão do navegador só aparece depois de um toque da pessoa
     if (await Notification.requestPermission() !== 'granted') { toast('Sem permissão, o app não consegue mandar avisos. Dá para liberar depois nas configurações do navegador.'); return; }
     const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: chaveVapid(AVISOS.vapid) });
-    const token = await tokenAntiRobo();
-    const r = await fetch(AVISOS.funcao, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA.chave },
-      body: JSON.stringify({ acao: 'inscrever', produto: SUPA.produto, token, inscricao: sub.toJSON() }) });
-    if (!r.ok) { await sub.unsubscribe(); toast('Não consegui ativar agora. Confira a internet e tente de novo.'); return; }
+    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: chaveVapid(AVISOS.vapid) });
+    if (!await registrarAvisos(sub)) throw new Error('servidor');
     store.set('avisosConvite', 'feito');
     toast('Pronto! Os avisos do Meus Gastos vão chegar neste aparelho.');
-  } catch { toast('Não consegui ativar agora. Confira a internet e tente de novo.'); }
+  } catch {
+    // não deixa o aparelho "ligado" sem o servidor saber
+    if (sub) await sub.unsubscribe().catch(() => { });
+    toast('Não consegui ativar agora. Confira a internet e tente de novo.');
+  }
   finally { pintarAvisos(); if (S.tab === 'mes' && !$('#app').hidden) renderMes(); }
+}
+// Aparelho com avisos ligados confere com o servidor a cada 7 dias (e na hora, se o endereço mudou).
+// Recupera quem ativou quando a função estava fora do ar; o servidor ignora repetidos.
+async function sincronizarAvisos() {
+  const sub = await inscricaoAtual(); if (!sub || !navigator.onLine) return;
+  const s = store.get('avisosSync', null);
+  if (s && s.e === sub.endpoint && diffDays(s.em, HOJE) < 7) return;
+  try { await registrarAvisos(sub); } catch { }
 }
 // desliga no navegador e apaga o endereço no servidor; devolve false se o servidor não respondeu
 async function desligarAvisos() {
@@ -3828,6 +3847,7 @@ S.tab = store.get('tab', 'mes');
 rebuild();
 if (DB.prontos) mostrarApp(); else mostrarOnb();
 receberCompartilhados();
+setTimeout(sincronizarAvisos, 4000);
 // aviso no celular: /?novo=1 abre direto o "Novo lançamento"; /?aba=arq abre uma aba (mes, hist, tab, arq)
 { const q = new URLSearchParams(location.search), aba = q.get('aba');
   if (q.has('novo') || aba) {
