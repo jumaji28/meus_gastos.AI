@@ -3099,14 +3099,13 @@ async function pintarAvisos() {
   if ($('#avOff')) $('#avOff').onclick = () => desligarAvisos().then(ok => { toast(ok ? 'Avisos desligados.' : 'Avisos desligados neste aparelho. O endereço é apagado do servidor quando houver internet.'); pintarAvisos(); });
 }
 document.addEventListener('click', e => { if (e.target.closest('[data-instalar]')) instrucoes(); });
-// manda o endereço de avisos para a função. Só vale a resposta { ok: true } da nossa função (um 200 qualquer não basta)
+// manda o endereço de avisos para a função (sem o anti-robô: no app instalado do iPhone ele falhava).
+// Só vale a resposta { ok: true } da nossa função; senão lança o erro com o código, para aparecer na mensagem
 async function registrarAvisos(sub) {
-  const token = await tokenAntiRobo();
   const r = await fetch(AVISOS.funcao, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA.chave },
-    body: JSON.stringify({ acao: 'inscrever', produto: SUPA.produto, token, inscricao: sub.toJSON() }) });
-  const ok = r.ok && (await r.json().catch(() => ({}))).ok === true;
-  if (ok) store.set('avisosSync', { e: sub.endpoint, em: HOJE });
-  return ok;
+    body: JSON.stringify({ acao: 'inscrever', produto: SUPA.produto, inscricao: sub.toJSON() }) });
+  if (!(r.ok && (await r.json().catch(() => ({}))).ok === true)) throw new Error('servidor ' + r.status);
+  store.set('avisosSync', { e: sub.endpoint, em: HOJE });
 }
 async function ativarAvisos() {
   const b = $('#avOn'); if (b) { b.disabled = true; b.textContent = 'Ativando…'; }
@@ -3116,13 +3115,13 @@ async function ativarAvisos() {
     if (await Notification.requestPermission() !== 'granted') { toast('Sem permissão, o app não consegue mandar avisos. Dá para liberar depois nas configurações do navegador.'); return; }
     const reg = await navigator.serviceWorker.ready;
     sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: chaveVapid(AVISOS.vapid) });
-    if (!await registrarAvisos(sub)) throw new Error('servidor');
+    await registrarAvisos(sub);
     store.set('avisosConvite', 'feito');
     toast('Pronto! Os avisos do Meus Gastos vão chegar neste aparelho.');
-  } catch {
-    // não deixa o aparelho "ligado" sem o servidor saber
+  } catch (e) {
+    // não deixa o aparelho "ligado" sem o servidor saber; o código do erro ajuda a achar o problema
     if (sub) await sub.unsubscribe().catch(() => { });
-    toast('Não consegui ativar agora. Confira a internet e tente de novo.');
+    toast(`Não consegui ativar agora (${(e && e.message || 'erro').slice(0, 40)}). Confira a internet e tente de novo.`);
   }
   finally { pintarAvisos(); if (S.tab === 'mes' && !$('#app').hidden) renderMes(); }
 }
